@@ -78,6 +78,12 @@ async function pollData() {
             
             // Si hay alguna modificación respecto a lo que tenemos en pantalla, re-renderizamos
             if (JSON.stringify(globalOrders) !== JSON.stringify(newOrders)) {
+                
+                // Disparar Notificación Visual si entró un Nuevo Trabajo (ya sea del bot o manual en otra PC)
+                if (globalOrders.length > 0 && newOrders.length > globalOrders.length) {
+                    showToast("¡Nuevo cliente o trabajo registrado!");
+                }
+
                 globalOrders = newOrders;
                 updateAllViews();
                 console.log("✅ Datos nuevos detectados vía Supabase. Pantalla actualizada automáticamente.");
@@ -88,6 +94,60 @@ async function pollData() {
 
 function clearData() {
     alert("Los datos ahora están en la nube (PostgreSQL/Supabase) y no pueden ser borrados con botón local.");
+}
+
+function showToast(message) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    if (!document.getElementById('toast-style-anim')) {
+        const style = document.createElement('style');
+        style.id = 'toast-style-anim';
+        style.innerHTML = `
+            @keyframes slideInUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            @keyframes slideOutFade { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.background = 'var(--primary-color, #4F46E5)';
+    toast.style.color = '#fff';
+    toast.style.padding = '12px 20px';
+    toast.style.borderRadius = '8px';
+    toast.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.2)';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.gap = '10px';
+    toast.style.fontWeight = '500';
+    toast.style.fontSize = '0.95rem';
+    toast.style.animation = 'slideInUp 0.3s ease-out forwards';
+    toast.innerHTML = `<i data-lucide="bell" style="width:20px;height:20px;"></i> ${message}`;
+    
+    container.appendChild(toast);
+    lucide.createIcons();
+
+    // Notificación en el sistema operativo
+    if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+            new Notification('Aviso Taller', { body: message });
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => {
+                if (p === 'granted') new Notification('Aviso Taller', { body: message });
+            });
+        }
+    }
+
+    // Auto-destrucción visual del globo flotante
+    setTimeout(() => {
+        toast.style.animation = 'slideOutFade 0.4s ease-in forwards';
+        setTimeout(() => toast.remove(), 400);
+    }, 6000); // Se va a los 6 segundos
+}
+
+// Configurar permiso preventivo de notificaciones al primer clic que hagas en la página web
+if ('Notification' in window && Notification.permission !== 'denied') {
+    document.addEventListener('click', () => Notification.requestPermission(), {once: true});
 }
 
 // --- DOM Elements ---
