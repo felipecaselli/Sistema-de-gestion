@@ -1,5 +1,5 @@
-2026/03/26-16:20:20.938 a8c Log #3: 1 ops saved to Table #4 OK
-2026/03/26-16:20:20.944 a8c Archiving C:\Users\PC\Desktop\CMB\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\Site Characteristics Database/000003.log: OK
-2026/03/26-16:20:20.944 a8c Table #4: 1 entries OK
-2026/03/26-16:20:20.946 a8c Archiving C:\Users\PC\Desktop\CMB\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\Site Characteristics Database/MANIFEST-000001: OK
-2026/03/26-16:20:20.965 a8c **** Repaired leveldb C:\Users\PC\Desktop\CMB\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\Site Characteristics Database; recovered 1 files; 130 bytes. Some data may have been lost. ****
+2026/03/26-17:05:51.284 4cf0 Log #6: 0 ops saved to Table #7 OK
+2026/03/26-17:05:51.287 4cf0 Archiving C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\Site Characteristics Database/000006.log: OK
+2026/03/26-17:05:51.294 4cf0 Table #4: 1 entries OK
+2026/03/26-17:05:51.305 4cf0 Archiving C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\Site Characteristics Database/MANIFEST-000001: OK
+2026/03/26-17:05:51.313 4cf0 **** Repaired leveldb C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\Site Characteristics Database; recovered 1 files; 130 bytes. Some data may have been lost. ****
