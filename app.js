@@ -2,7 +2,10 @@
 lucide.createIcons();
 
 // --- Configuration & Initialization ---
-const API_BASE = 'http://localhost:3000/api';
+const supabaseUrl = 'https://rpvxndvoekhmzavpbgik.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwdnhuZHZvZWtobXphdnBiZ2lrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDc0NjcsImV4cCI6MjA5MDEyMzQ2N30.AjG_Ng-xPXgGfoVQL5G5a1Y-Zdcjtn8yagV29RBy910';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+const DEFAULT_TENANT_ID = 'taller-demo';
 const orderStatuses = ['recibido', 'proceso', 'materiales', 'listo'];
 
 const statusConfig = {
@@ -21,9 +24,13 @@ let topClientsChartInstance = null;
 
 async function initData() {
     try {
-        const response = await fetch(`${API_BASE}/orders`);
-        if (response.ok) {
-            const data = await response.json();
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('tenant_id', DEFAULT_TENANT_ID)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
             globalOrders = data.map(o => ({
                 id: `OT-${o.id.toString().substring(0,8)}`,
                 dbId: o.id,
@@ -39,17 +46,21 @@ async function initData() {
             }));
         }
     } catch (err) {
-        console.error("API Error: no se pudo cargar desde Supabase.", err);
+        console.error("SDK Error:", err);
     }
     updateAllViews();
 }
 
-// Auto-Polling Realtime App Sync
+// Auto-Polling Realtime App Sync via Supabase
 async function pollData() {
     try {
-        const response = await fetch(`${API_BASE}/orders`);
-        if (response.ok) {
-            const data = await response.json();
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('tenant_id', DEFAULT_TENANT_ID)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
             const newOrders = data.map(o => ({
                 id: `OT-${o.id.toString().substring(0,8)}`,
                 dbId: o.id,
@@ -68,7 +79,7 @@ async function pollData() {
             if (JSON.stringify(globalOrders) !== JSON.stringify(newOrders)) {
                 globalOrders = newOrders;
                 updateAllViews();
-                console.log("✅ Datos nuevos detectados. Pantalla actualizada automáticamente.");
+                console.log("✅ Datos nuevos detectados vía Supabase. Pantalla actualizada automáticamente.");
             }
         }
     } catch (err) {}
@@ -122,6 +133,7 @@ async function submitOrder() {
     }
 
     const payload = {
+        tenant_id: DEFAULT_TENANT_ID,
         client_name: document.getElementById('form-client').value,
         contact_phone: document.getElementById('form-phone').value,
         email: document.getElementById('form-email').value,
@@ -134,17 +146,15 @@ async function submitOrder() {
     };
 
     try {
-        const response = await fetch(`${API_BASE}/orders`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        if (response.ok) {
+        const { error } = await supabase
+            .from('orders')
+            .insert([payload]);
+
+        if (!error) {
             await initData(); // Refrescar los datos desde Supabase
             closeOrderModal();
         } else {
-            alert("Error del servidor al guardar la orden.");
+            alert("Error de Supabase al guardar la orden: " + error.message);
         }
     } catch (e) {
         console.error(e);
@@ -172,11 +182,11 @@ async function cycleStatus(orderId) {
     updateAllViews();
 
     try {
-        await fetch(`${API_BASE}/orders/${order.dbId}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
+        await supabase
+            .from('orders')
+            .update({ status: newStatus })
+            .eq('id', order.dbId)
+            .eq('tenant_id', DEFAULT_TENANT_ID);
     } catch (e) {
         console.error("Error al actualizar el estado de la orden.", e);
         // Podríamos revertir el cambio optimista aquí en caso de error
@@ -241,7 +251,11 @@ async function deleteOrder(id) {
         if (!order) return;
         
         try {
-            await fetch(`${API_BASE}/orders/${order.dbId}`, { method: 'DELETE' });
+            await supabase
+                .from('orders')
+                .delete()
+                .eq('id', order.dbId)
+                .eq('tenant_id', DEFAULT_TENANT_ID);
             await initData();
         } catch (e) {
             console.error("Error al borrar", e);
