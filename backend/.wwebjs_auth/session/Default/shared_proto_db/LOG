@@ -1,3 +1,2 @@
-2026/03/26-03:04:24.536 2528 Reusing MANIFEST C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001
-2026/03/26-03:04:24.536 2528 Recovering log #3
-2026/03/26-03:04:24.538 2528 Reusing old log C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\shared_proto_db/000003.log 
+2026/03/26-17:16:21.587 2e54 Creating DB C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\shared_proto_db since it was missing.
+2026/03/26-17:16:21.594 2e54 Reusing MANIFEST C:\Users\felic\OneDrive\Escritorio\Sistema-de-gestion\backend\.wwebjs_auth\session\Default\shared_proto_db/MANIFEST-000001

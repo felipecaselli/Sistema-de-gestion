@@ -85,7 +85,17 @@ const sessions = {};
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-first-run',
+            '--disable-extensions',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding'
+        ],
     }
 });
 
@@ -239,5 +249,24 @@ client.on('message', async (message) => {
     await chat.clearState();
 });
 
+client.on('disconnected', (reason) => {
+    console.log('❌ WhatsApp desconectado:', reason);
+    // Optionally, reinitialize after a delay
+    setTimeout(() => {
+        console.log('🔄 Intentando reconectar...');
+        client.initialize();
+    }, 5000);
+});
+
 // START
-client.initialize();
+async function startClient() {
+    try {
+        await client.initialize();
+    } catch (error) {
+        console.error('❌ Error al inicializar el cliente de WhatsApp:', error);
+        console.log('🔄 Reintentando en 10 segundos...');
+        setTimeout(startClient, 10000);
+    }
+}
+
+startClient();
