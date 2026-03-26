@@ -123,8 +123,8 @@ client.on('message', async (message) => {
                     session.step = 'AWAITING_TRACKING';
                     await message.reply("Por favor, ingresa tu código de seguimiento (ej: OT-1234abcd o simplemente los números/letras extrayendo el OT-):");
                 } else if (messageText === '3') {
-                    delete sessions[senderPhone];
-                    await message.reply("Un representante se contactará contigo a la brevedad. ¡Gracias por comunicarte!");
+                    session.step = 'HUMAN_MODE';
+                    await message.reply("Un representante se contactará contigo a la brevedad. ¡Gracias por comunicarte! (Envía *reiniciar* en cualquier momento para volver al menú automático).");
                 } else {
                     await message.reply("Opción no válida. Por favor responde únicamente con *1*, *2* o *3*.");
                 }
@@ -219,6 +219,14 @@ client.on('message', async (message) => {
                 }
                 
                 delete sessions[senderPhone];
+                break;
+
+            case 'HUMAN_MODE':
+                if (messageText.toLowerCase() === 'reiniciar') {
+                    delete sessions[senderPhone];
+                    await message.reply("🤖 Menú automático reiniciado. Envía un mensaje (ej: Hola) para empezar.");
+                }
+                // Si no es "reiniciar", no hace nada y deja hablar al humano.
                 break;
         }
     }

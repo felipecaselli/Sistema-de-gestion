@@ -44,6 +44,36 @@ async function initData() {
     updateAllViews();
 }
 
+// Auto-Polling Realtime App Sync
+async function pollData() {
+    try {
+        const response = await fetch(`${API_BASE}/orders`);
+        if (response.ok) {
+            const data = await response.json();
+            const newOrders = data.map(o => ({
+                id: `OT-${o.id.toString().substring(0,8)}`,
+                dbId: o.id,
+                client: o.client_name,
+                contact: o.contact_phone,
+                email: o.email || '',
+                object: o.object_name,
+                service: o.service_details,
+                budget: o.budget || 0,
+                date: o.estimated_date || o.created_at.split('T')[0],
+                status: o.status,
+                wppStatus: o.wpp_status
+            }));
+            
+            // Si hay alguna modificación respecto a lo que tenemos en pantalla, re-renderizamos
+            if (JSON.stringify(globalOrders) !== JSON.stringify(newOrders)) {
+                globalOrders = newOrders;
+                updateAllViews();
+                console.log("✅ Datos nuevos detectados. Pantalla actualizada automáticamente.");
+            }
+        }
+    } catch (err) {}
+}
+
 function clearData() {
     alert("Los datos ahora están en la nube (PostgreSQL/Supabase) y no pueden ser borrados con botón local.");
 }
@@ -455,4 +485,7 @@ filterStatus.addEventListener('change', () => { renderAllOrders(); lucide.create
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     initData();
+    
+    // Configura actualización constante cada 10 segundos
+    setInterval(pollData, 10000); 
 });
