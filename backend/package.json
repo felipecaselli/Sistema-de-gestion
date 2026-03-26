@@ -1,0 +1,18 @@
+{
+  "name": "craftflow-whatsapp-bot-local",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot to capture work orders using whatsapp-web.js and Google Gemini AI",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "dotenv": "^16.4.5",
+    "qrcode-terminal": "^0.12.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "whatsapp-web.js": "^1.23.0"
+  }
+}

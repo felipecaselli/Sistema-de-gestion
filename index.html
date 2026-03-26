@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,279 +9,302 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <!-- Unpkg Development link for Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
+
 <body>
 
-<div class="app-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <i data-lucide="hammer"></i>
-            <span>CraftFlow</span>
-        </div>
-        <ul class="nav-menu">
-            <li class="nav-item active" data-target="dashboard">
-                <i data-lucide="layout-dashboard" class="nav-icon"></i>
-                Dashboard
-            </li>
-            <li class="nav-item" data-target="orders">
-                <i data-lucide="clipboard-list" class="nav-icon"></i>
-                Órdenes de Trabajo
-            </li>
-            <li class="nav-item" data-target="customers">
-                <i data-lucide="users" class="nav-icon"></i>
-                Clientes
-            </li>
-            <li class="nav-item" data-target="reports">
-                <i data-lucide="bar-chart-2" class="nav-icon"></i>
-                Reportes
-            </li>
-            <div style="flex:1"></div>
-            <li class="nav-item" data-target="settings">
-                <i data-lucide="settings" class="nav-icon"></i>
-                Configuración
-            </li>
-        </ul>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-search">
-                <i data-lucide="search" class="search-icon"></i>
-                <input type="text" placeholder="Buscar órdenes, clientes...">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i data-lucide="hammer"></i>
+                <span>CraftFlow</span>
             </div>
-            <div class="header-actions">
-                <button class="icon-btn" title="Notificaciones">
-                    <i data-lucide="bell"></i>
-                    <span class="badge"></span>
-                </button>
-                <div class="user-profile">
-                    <div class="avatar">EB</div>
-                    <div style="font-size: 0.9rem; font-weight: 500;">El Buen Carpintero</div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-target="dashboard">
+                    <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                    Dashboard
+                </li>
+                <li class="nav-item" data-target="orders">
+                    <i data-lucide="clipboard-list" class="nav-icon"></i>
+                    Órdenes de Trabajo
+                </li>
+                <li class="nav-item" data-target="customers">
+                    <i data-lucide="users" class="nav-icon"></i>
+                    Clientes
+                </li>
+                <li class="nav-item" data-target="reports">
+                    <i data-lucide="bar-chart-2" class="nav-icon"></i>
+                    Reportes
+                </li>
+                <div style="flex:1"></div>
+                <li class="nav-item" data-target="settings">
+                    <i data-lucide="settings" class="nav-icon"></i>
+                    Configuración
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-search">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="global-search" placeholder="Buscar órdenes, clientes...">
                 </div>
-            </div>
-        </header>
-
-        <!-- Pages -->
-        <!-- Dashboard Page -->
-        <div class="page-container active" id="dashboard-page">
-            <div class="page-header">
-                <div>
-                    <h1>Hola, <span style="color:var(--text-secondary);font-weight:400">bienvenido al taller</span></h1>
-                    <p>Aquí está el resumen de tu trabajo el día de hoy.</p>
-                </div>
-                <button class="primary-btn" onclick="openOrderModal()">
-                    <i data-lucide="plus"></i>
-                    Nueva Orden
-                </button>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <span>Órdenes Activas</span>
-                        <div class="stat-icon blue"><i data-lucide="activity"></i></div>
+                <div class="header-actions">
+                    <button class="icon-btn" title="Notificaciones" onclick="clearData()">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                    <button class="icon-btn" title="Notificaciones">
+                        <i data-lucide="bell"></i>
+                        <span class="badge"></span>
+                    </button>
+                    <div class="user-profile">
+                        <div class="avatar">EB</div>
+                        <div style="font-size: 0.9rem; font-weight: 500;">El Buen Carpintero</div>
                     </div>
-                    <div class="stat-value">24</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <span>Listas p/ Entrega</span>
-                        <div class="stat-icon green"><i data-lucide="check-circle-2"></i></div>
+            </header>
+
+            <!-- Pages -->
+            <!-- Dashboard Page -->
+            <div class="page-container active" id="dashboard-page">
+                <div class="page-header">
+                    <div>
+                        <h1>Hola, <span style="color:var(--text-secondary);font-weight:400">bienvenido al taller</span>
+                        </h1>
+                        <p>Aquí está el resumen de tu trabajo el día de hoy.</p>
                     </div>
-                    <div class="stat-value">5</div>
+                    <button class="primary-btn" onclick="openOrderModal()">
+                        <i data-lucide="plus"></i>
+                        Nueva Orden
+                    </button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <span>Espera de Materiales</span>
-                        <div class="stat-icon orange"><i data-lucide="package-search"></i></div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Órdenes Activas</span>
+                            <div class="stat-icon blue"><i data-lucide="activity"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-activas">0</div>
                     </div>
-                    <div class="stat-value">3</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <span>Atrasadas</span>
-                        <div class="stat-icon red"><i data-lucide="alert-circle"></i></div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Listas p/ Entrega</span>
+                            <div class="stat-icon green"><i data-lucide="check-circle-2"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-listas">0</div>
                     </div>
-                    <div class="stat-value">1</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Órdenes Recientes</h2>
-                    <button class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.85rem">Ver todas</button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th># Orden</th>
-                                <th>Cliente</th>
-                                <th>Objeto / Trabajo</th>
-                                <th>Fecha Est.</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recent-orders-tbody">
-                            <!-- Populated via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Orders Page Placeholder -->
-        <div class="page-container" id="orders-page">
-            <div class="page-header">
-                <div>
-                    <h1>Gestión de Órdenes</h1>
-                    <p>Administra y actualiza el estado de las órdenes de trabajo.</p>
-                </div>
-                <button class="primary-btn" onclick="openOrderModal()">
-                    <i data-lucide="plus"></i>
-                    Nueva Orden
-                </button>
-            </div>
-            <div class="card">
-                <div class="card-header" style="display:flex; gap:1rem; flex-wrap:wrap">
-                    <input type="text" class="form-control" placeholder="Filtrar por objeto o cliente..." style="width:250px;">
-                    <select class="form-control" style="width:180px;">
-                        <option value="">Todos los estados</option>
-                        <option value="recibido">Recibido</option>
-                        <option value="proceso">En Proceso</option>
-                        <option value="materiales">Espera Materiales</option>
-                        <option value="listo">Listo p/ Entrega</option>
-                    </select>
-                </div>
-                <div class="table-container">
-                    <table style="min-width: 800px;">
-                         <thead>
-                            <tr>
-                                <th># Orden</th>
-                                <th>Cliente</th>
-                                <th>Objeto / Trabajo</th>
-                                <th>Fecha Est.</th>
-                                <th>Estado</th>
-                                <th>Progreso(Wpp)</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="all-orders-tbody">
-                            <!-- Populated via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- CRM Page Placeholder -->
-        <div class="page-container" id="customers-page">
-            <div class="page-header">
-                <div>
-                    <h1>Base de Clientes</h1>
-                    <p>Historial y CRM de tus contactos.</p>
-                </div>
-                <button class="primary-btn">
-                    <i data-lucide="user-plus"></i>
-                    Nuevo Cliente
-                </button>
-            </div>
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Directorio</h2>
-                </div>
-                <div style="padding:3rem;text-align:center;color:var(--text-secondary)">
-                    <i data-lucide="users" style="width:48px;height:48px;opacity:0.5;margin-bottom:1rem"></i>
-                    <p>El módulo de clientes será implementado pronto.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Other Pages (Reports, Settings) ... -->
-        <div class="page-container" id="reports-page">
-            <div class="page-header">
-                <h1>Reportes</h1>
-            </div>
-            <p>Módulo de gráficas (Ingresos, tiempos promedios, etc.)</p>
-        </div>
-        
-        <div class="page-container" id="settings-page">
-            <div class="page-header">
-                <h1>Configuración</h1>
-            </div>
-            <p>Configuración del perfil del taller, servicios de WhatsApp y Materiales.</p>
-        </div>
-
-    </main>
-</div>
-
-<!-- Modal: New Order -->
-<div class="modal-overlay" id="order-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="card-title" style="margin:0;">Crear Nueva Orden (OT)</h2>
-            <button class="icon-btn" onclick="closeOrderModal()"><i data-lucide="x"></i></button>
-        </div>
-        <div class="modal-body">
-            <form id="new-order-form">
-                <h3 style="font-size:0.95rem; margin-bottom:1rem; color:var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Datos del Cliente</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Nombre del Cliente</label>
-                        <input type="text" class="form-control" placeholder="Ej: Juan Pérez" required>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Espera de Materiales</span>
+                            <div class="stat-icon orange"><i data-lucide="package-search"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-materiales">0</div>
                     </div>
-                    <div class="form-group">
-                        <label>Teléfono (WhatsApp)</label>
-                        <input type="tel" class="form-control" placeholder="+54 9 11 1234-5678" required>
-                    </div>
-                    <div class="form-group full">
-                        <label>Email (Opcional)</label>
-                        <input type="email" class="form-control" placeholder="juan@ejemplo.com">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Total Clientes</span>
+                            <div class="stat-icon red"
+                                style="background-color: var(--primary-light); color: var(--primary-color);"><i
+                                    data-lucide="users"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-clientes">0</div>
                     </div>
                 </div>
 
-                <h3 style="font-size:0.95rem; margin:1.5rem 0 1rem; color:var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Detalles del Trabajo</h3>
-                <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Objeto / Pieza</label>
-                        <input type="text" class="form-control" placeholder="Ej: Silla mecedora antigua de roble" required>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Órdenes Recientes</h2>
+                        <button class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.85rem"
+                            onclick="goToOrders()">Ver todas</button>
                     </div>
-                    <div class="form-group full">
-                        <label>Descripción del trabajo (Servicio)</label>
-                        <textarea class="form-control" placeholder="Detalla qué reparaciones, restauraciones o modificaciones se realizarán..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Presupuesto Estimado ($)</label>
-                        <input type="number" class="form-control" placeholder="0.00">
-                    </div>
-                    <div class="form-group">
-                        <label>Fecha Est. Entrega</label>
-                        <input type="date" class="form-control">
-                    </div>
-                    <div class="form-group full">
-                         <label>Fotografías (Estado Inicial)</label>
-                         <div class="photo-upload">
-                             <i data-lucide="image-plus" style="width:32px;height:32px;"></i>
-                             <p>Arrastra fotos aquí o <strong>Haz clic para subir</strong></p>
-                             <p style="font-size:0.75rem; color:var(--text-secondary)">Soporta JPG, PNG</p>
-                         </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th># Orden</th>
+                                    <th>Cliente</th>
+                                    <th>Objeto / Trabajo</th>
+                                    <th>Fecha Est.</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-orders-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeOrderModal()">Cancelar</button>
-            <button type="button" class="primary-btn" onclick="submitOrder()">Guardar Orden</button>
+            </div>
+
+            <!-- Orders Page placeholder -->
+            <div class="page-container" id="orders-page">
+                <div class="page-header">
+                    <div>
+                        <h1>Gestión de Órdenes</h1>
+                        <p>Administra y actualiza el estado de las órdenes de trabajo.</p>
+                    </div>
+                    <button class="primary-btn" onclick="openOrderModal()">
+                        <i data-lucide="plus"></i>
+                        Nueva Orden
+                    </button>
+                </div>
+                <div class="card">
+                    <div class="card-header" style="display:flex; gap:1rem; flex-wrap:wrap">
+                        <input type="text" id="filter-text" class="form-control"
+                            placeholder="Filtrar por objeto o cliente..." style="width:250px;">
+                        <select id="filter-status" class="form-control" style="width:180px;">
+                            <option value="">Todos los estados</option>
+                            <option value="recibido">Recibido</option>
+                            <option value="proceso">En Proceso</option>
+                            <option value="materiales">Espera Materiales</option>
+                            <option value="listo">Listo p/ Entrega</option>
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table style="min-width: 800px;">
+                            <thead>
+                                <tr>
+                                    <th># Orden</th>
+                                    <th>Cliente</th>
+                                    <th>Objeto / Trabajo</th>
+                                    <th>Fecha Est.</th>
+                                    <th>Estado (Clic para cambiar)</th>
+                                    <th>Notif. Whatsapp</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-orders-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CRM Page placeholder -->
+            <div class="page-container" id="customers-page">
+                <div class="page-header">
+                    <div>
+                        <h1>Base de Clientes</h1>
+                        <p>Listado de clientes generados a partir de las órdenes.</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table style="min-width: 600px;">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Teléfono</th>
+                                    <th>Email</th>
+                                    <th>Órdenes Totales</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customers-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Pages -->
+            <div class="page-container" id="reports-page">
+                <div class="page-header">
+                    <h1>Reportes</h1>
+                </div>
+                <div class="card" style="padding:3rem;text-align:center;color:var(--text-secondary)">
+                    <i data-lucide="bar-chart-2" style="width:48px;height:48px;opacity:0.5;margin-bottom:1rem"></i>
+                    <p>Las gráficas y reportes detallados se habilitarán en la próxima versión.</p>
+                </div>
+            </div>
+
+            <div class="page-container" id="settings-page">
+                <div class="page-header">
+                    <h1>Configuración</h1>
+                </div>
+                <div class="card" style="padding:2rem;">
+                    <p style="color:var(--text-secondary)">Ajusta los detalles del taller y servicios ofrecidos.</p>
+                    <button class="primary-btn" style="margin-top:1rem" onclick="clearData()">Borrar Datos
+                        (Reiniciar)</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal: New Order -->
+    <div class="modal-overlay" id="order-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="card-title" style="margin:0;">Crear Nueva Orden (OT)</h2>
+                <button class="icon-btn" onclick="closeOrderModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="new-order-form">
+                    <h3
+                        style="font-size:0.95rem; margin-bottom:1rem; color:var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                        Datos del Cliente</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nombre del Cliente *</label>
+                            <input type="text" id="form-client" class="form-control" placeholder="Ej: Juan Pérez"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label>Teléfono (WhatsApp) *</label>
+                            <input type="tel" id="form-phone" class="form-control" placeholder="+54 9 11 1234-5678"
+                                required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Email (Opcional)</label>
+                            <input type="email" id="form-email" class="form-control" placeholder="juan@ejemplo.com">
+                        </div>
+                    </div>
+
+                    <h3
+                        style="font-size:0.95rem; margin:1.5rem 0 1rem; color:var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                        Detalles del Trabajo</h3>
+                    <div class="form-grid">
+                        <div class="form-group full">
+                            <label>Objeto / Pieza *</label>
+                            <input type="text" id="form-object" class="form-control"
+                                placeholder="Ej: Silla mecedora antigua de roble" required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Descripción del servicio *</label>
+                            <textarea id="form-service" class="form-control"
+                                placeholder="Detalla qué reparaciones, restauraciones o modificaciones se realizarán..."
+                                required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Presupuesto Estimado ($)</label>
+                            <input type="number" id="form-budget" class="form-control" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Est. Entrega *</label>
+                            <input type="date" id="form-date" class="form-control" required>
+                        </div>
+                    </div>
+                    <!-- Hidden Submit Button just to catch standard HTML5 validation easily via form.checkValidity() but we intercept it -->
+                    <button type="submit" id="hidden-submit" style="display:none"></button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeOrderModal()">Cancelar</button>
+                <button type="button" class="primary-btn" onclick="submitOrder()">Guardar Orden</button>
+            </div>
         </div>
     </div>
-</div>
 
-<script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
+
 </html>
