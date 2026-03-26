@@ -155,13 +155,18 @@ client.on('message', async (message) => {
             case 'AWAITING_DETAILS':
                 session.details = messageText;
                 
+                // Limpiar el número de teléfono para la base de datos (+549 y @c.us)
+                let dbCleanPhone = senderPhone.replace(/@c\.us/g, '').replace(/@g\.us/g, '');
+                if (dbCleanPhone.startsWith('549')) dbCleanPhone = dbCleanPhone.substring(3);
+                if (dbCleanPhone.startsWith('54')) dbCleanPhone = dbCleanPhone.substring(2);
+
                 // Save to Supabase
                 const { data: insertData, error: insertError } = await supabase
                     .from('orders')
                     .insert([{
                         tenant_id: DEFAULT_TENANT_ID,
                         client_name: session.name,
-                        contact_phone: senderPhone,
+                        contact_phone: dbCleanPhone,
                         object_name: session.object,
                         service_details: session.details,
                         status: 'recibido',

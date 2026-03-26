@@ -320,6 +320,7 @@ function renderAllOrders() {
                 <div style="font-size:0.8rem; color:var(--text-secondary)">${order.service}</div>
             </td>
             <td>${order.date}</td>
+            <td style="font-weight:500; color:var(--text-main)">$${Number(order.budget || 0).toLocaleString('es-AR')}</td>
             <td><span class="status ${sc.class}" style="cursor:pointer" onclick="cycleStatus('${order.id}')" title="Clic para avanzar">${sc.label}</span></td>
             <td style="font-size:0.85rem; font-weight:500;">
                 <button class="btn-secondary" style="padding:0.3rem 0.6rem; display:flex; align-items:center; gap:0.4rem; font-size:0.8rem" onclick="openWhatsApp('${order.id}')">
@@ -341,11 +342,20 @@ function renderCustomers() {
     // Group orders by client
     const cmap = new Map();
     globalOrders.forEach(o => {
-        const key = o.client.toLowerCase() + o.contact;
+        // Normalizar nombre a minúsculas para agrupación (ignora MAYÚSCULAS)
+        const cleanName = o.client ? o.client.trim().toLowerCase() : 'desconocido';
+        
+        // Normalizar teléfono (solo números, y limpiar códigos de país como +549)
+        let cleanPhone = o.contact ? o.contact.replace(/\D/g, '') : '';
+        if (cleanPhone.startsWith('549')) cleanPhone = cleanPhone.substring(3);
+        if (cleanPhone.startsWith('54')) cleanPhone = cleanPhone.substring(2);
+
+        const key = cleanName + '-' + cleanPhone;
+
         if (!cmap.has(key)) {
             cmap.set(key, {
-                name: o.client,
-                phone: o.contact,
+                name: o.client.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), // Título (ej: Juan Perez)
+                phone: cleanPhone,
                 email: o.email || '-',
                 count: 0
             });
