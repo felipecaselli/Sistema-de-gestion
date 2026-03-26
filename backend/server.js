@@ -109,29 +109,54 @@ client.on('message', async (message) => {
     await chat.sendStateTyping();
 
     if (!sessions[senderPhone]) {
-        sessions[senderPhone] = { step: 'AWAITING_NAME' };
-        await message.reply("¡Hola! Bienvenido al taller. Para registrar tu orden, necesito que me pases algunos datos.\n\nPor favor, decime tu *Nombre Completo*:");
+        sessions[senderPhone] = { step: 'MENU_PRINCIPAL' };
+        await message.reply("¡Hola! Soy el asistente virtual del taller 🛠️.\n\nPor favor responde con el *número* de la opción deseada:\n1️⃣ Solicitar un trabajo / presupuesto\n2️⃣ Consultar estado de una reparación\n3️⃣ Hablar con un humano");
     } else {
         const session = sessions[senderPhone];
         
         switch (session.step) {
+            case 'MENU_PRINCIPAL':
+                if (messageText === '1') {
+                    session.step = 'AWAITING_NAME';
+                    await message.reply("Excelente. Por favor, escribí en *un solo mensaje* tu *Nombre y Apellido*:");
+                } else if (messageText === '2') {
+                    session.step = 'AWAITING_TRACKING';
+                    await message.reply("Por favor, ingresa tu código de seguimiento (ej: OT-1234abcd o simplemente los números/letras extrayendo el OT-):");
+                } else if (messageText === '3') {
+                    delete sessions[senderPhone];
+                    await message.reply("Un representante se contactará contigo a la brevedad. ¡Gracias por comunicarte!");
+                } else {
+                    await message.reply("Opción no válida. Por favor responde únicamente con *1*, *2* o *3*.");
+                }
+                break;
+
             case 'AWAITING_NAME':
                 session.name = messageText;
                 session.step = 'AWAITING_OBJECT';
-                await message.reply(`¡Perfecto, ${session.name}! ¿Qué *objeto o pieza* necesitas restaurar?`);
+                await message.reply(`Gracias *${session.name}*. Ahora selecciona qué *tipo de servicio* o elemento requieres (responde con el número):\n\n1. Chapa y Pintura / Reparación de carrocería\n2. Mecánica / Motor\n3. Service General / Mantenimiento\n4. Otro`);
                 break;
                 
             case 'AWAITING_OBJECT':
-                session.object = messageText;
-                session.step = 'AWAITING_DETAILS';
-                await message.reply(`Entendido. Por último, contame, ¿qué *detalles* o tipo de reparación necesita el objeto?`);
+                const options = {
+                    '1': 'Chapa y Pintura / Reparación de carrocería',
+                    '2': 'Mecánica / Motor',
+                    '3': 'Service General / Mantenimiento',
+                    '4': 'Otro'
+                };
+                if (options[messageText]) {
+                    session.object = options[messageText];
+                    session.step = 'AWAITING_DETAILS';
+                    await message.reply(`Perfecto. Por último, descríbeme brevemente cuál es el problema o qué necesitas (ej: "hace ruido al frenar", o "cambio de aceite"):`);
+                } else {
+                    await message.reply("Por favor, elige una opción válida del *1 al 4*.");
+                }
                 break;
                 
             case 'AWAITING_DETAILS':
                 session.details = messageText;
                 
                 // Save to Supabase
-                const { data, error } = await supabase
+                const { data: insertData, error: insertError } = await supabase
                     .from('orders')
                     .insert([{
                         tenant_id: DEFAULT_TENANT_ID,
@@ -145,13 +170,52 @@ client.on('message', async (message) => {
                     .select()
                     .single();
 
-                if (error) {
-                    console.error("❌ Error Supabase:", error);
-                    await message.reply("Hubo un error al guardar tu orden. Por favor intenta enviando cualquier mensaje para reiniciar.");
+                if (insertError) {
+                    console.error("❌ Error Supabase:", insertError);
+                    await message.reply("Hubo un error al guardar tu orden. Por favor envía cualquier mensaje para reiniciar el menú.");
                 } else {
-                    const trackingId = data.id.toString().substring(0, 8); // Shortened ID for tracking
-                    await message.reply(`¡Excelente ${session.name}!\n\nTu orden para la restauración de "${session.object}" ha sido registrada exitosamente con el número de seguimiento *OT-${trackingId}*.\n\n¡En breve un humano te contactará por el presupuesto!`);
+                    const trackingId = insertData.id.toString().substring(0, 8); // Shortened ID for tracking
+                    await message.reply(`¡Orden registrada con éxito!\n\nTu número de seguimiento es *OT-${trackingId}*.\n\nEn breve un humano revisará los detalles para armar tu presupuesto.`);
                     console.log(`✅ Orden guardada en DB: OT-${trackingId}`);
+                }
+                
+                delete sessions[senderPhone];
+                break;
+
+            case 'AWAITING_TRACKING':
+                const match = messageText.match(/([a-zA-Z0-9\-]+)/);
+                if (!match) {
+                    await message.reply("Por favor, ingresa un código de seguimiento válido.");
+                    break;
+                }
+                const trackingInput = match[1].replace('OT-', '').trim();
+                
+                try {
+                    const { data: searchData, error: searchError } = await supabase
+                        .from('orders')
+                        .select('id, status, object_name')
+                        .eq('tenant_id', DEFAULT_TENANT_ID);
+                        
+                    if (searchError) throw searchError;
+                    
+                    const foundOrder = searchData.find(o => o.id.toString().substring(0, 8) === trackingInput.substring(0, 8));
+                    
+                    if (foundOrder) {
+                        const statusMap = {
+                            recibido: "Recibido (esperando diagnóstico)",
+                            proceso: "En Proceso",
+                            materiales: "En Espera de Materiales",
+                            listo: "Listo para Entrega"
+                        };
+                        const readableStatus = statusMap[foundOrder.status] || foundOrder.status;
+                        await message.reply(`Tu reparación para *${foundOrder.object_name}* se encuentra actualmente: *${readableStatus}*.\n\n¡Gracias por consultar!`);
+                    } else {
+                        await message.reply(`No encontramos ninguna orden con el código *${trackingInput}*. Por favor verifica y vuelve a intentar enviando el código.`);
+                        // Mantenemos la sesión para que vuelva a introducir el código, o podemos borrarla para que regrese al menú
+                    }
+                } catch (err) {
+                    console.error("Error buscando orden", err);
+                    await message.reply("Hubo un error al buscar tu orden. Por favor intenta de nuevo más tarde.");
                 }
                 
                 delete sessions[senderPhone];
