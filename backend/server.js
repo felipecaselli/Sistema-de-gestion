@@ -4,13 +4,12 @@ import qrcode from 'qrcode-terminal';
 import dotenv from 'dotenv';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
-import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
-// Initialize Google Gemini AI
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 let db;
+// Dictionary to keep track of user sessions and their current step in the menu
+const sessions = {};
 
 // --- 1. SETUP DATABASE ---
 async function setupDatabase() {
@@ -34,30 +33,12 @@ async function setupDatabase() {
     console.log("✅ Database initialized");
 }
 
-// --- 2. AI INTEGRATION (THE "MAGIC") ---
-async function processMessageWithAI(messageText) {
-    const systemPrompt = `Sos un asistente de recepción para un taller de restauración. Tu tarea es recibir un mensaje desestructurado y devolver ÚNICAMENTE un objeto JSON con las llaves: 'name' (Nombre del cliente), 'object' (Objeto o pieza), 'details' (Detalles de qué se necesita). Si falta alguna de esta información, devolvé un objeto con la llave 'error' pidiendo específicamente el dato faltante. IMPORTANTE: Tu respuesta debe ser solo JSON, sin formato extra ni markdown.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: messageText,
-            config: {
-                systemInstruction: systemPrompt,
-                responseMimeType: "application/json",
-                temperature: 0.1
-            }
-        });
-
-        const jsonStr = response.text;
-        const result = JSON.parse(jsonStr);
-        return result;
-
-    } catch (error) {
-        console.error("❌ Error parsing with AI:", error);
-        return { error: 'Ocurrió un error al procesar tu solicitud. Por favor intenta de nuevo.' };
-    }
-}
+// --- 2. MENU STATE LOGIC ---
+// We use the sessions object above to keep track of steps.
+// Available Steps:
+// - AWAITING_NAME
+// - AWAITING_OBJECT
+// - AWAITING_DETAILS
 
 // --- 3. WHATSAPP CLIENT SETUP ---
 // We use LocalAuth so you ONLY scan the QR code the FIRST time.
@@ -93,47 +74,65 @@ client.on('message', async (message) => {
     // Prevent the bot from replying to itself, status messages, or group chats
     if (message.fromMe || message.isStatus || message.isGroup) return;
 
-    const messageText = message.body;
+    const messageText = message.body.trim();
     const senderPhone = message.from;
 
     console.log(`\n📩 Recibido de [${senderPhone}]: ${messageText}`);
 
-    // Option: Show "typing..." indicator to the user
+    // Show "typing..." indicator to the user
     const chat = await message.getChat();
     await chat.sendStateTyping();
 
-    // 1. Process text with AI
-    const aiResult = await processMessageWithAI(`Mensaje del cliente: "${messageText}"`);
+    // Menu State Machine Logic
+    if (!sessions[senderPhone]) {
+        // Start new conversation / order process
+        sessions[senderPhone] = { step: 'AWAITING_NAME' };
+        await message.reply("¡Hola! Bienvenido al taller de restauración. Para registrar tu orden, necesito que me pases algunos datos.\n\nPor favor, decime tu *Nombre Completo*:");
+        console.log(`🤖 Solicitando Nombre a [${senderPhone}]`);
+    } else {
+        const session = sessions[senderPhone];
+        
+        switch (session.step) {
+            case 'AWAITING_NAME':
+                session.name = messageText;
+                session.step = 'AWAITING_OBJECT';
+                await message.reply(`¡Perfecto, ${session.name}! ¿Qué *objeto o pieza* necesitas restaurar?`);
+                console.log(`🤖 Solicitando Objeto a [${senderPhone}]`);
+                break;
+                
+            case 'AWAITING_OBJECT':
+                session.object = messageText;
+                session.step = 'AWAITING_DETAILS';
+                await message.reply(`Entendido. Por último, contame, ¿qué *detalles* o tipo de reparación necesita el objeto?`);
+                console.log(`🤖 Solicitando Detalles a [${senderPhone}]`);
+                break;
+                
+            case 'AWAITING_DETAILS':
+                session.details = messageText;
+                
+                // Save to database
+                try {
+                    const dbResult = await db.run(
+                        `INSERT INTO orders (customer_name, phone, object_description, repair_details) 
+                         VALUES (?, ?, ?, ?)`,
+                        [session.name, senderPhone, session.object, session.details]
+                    );
 
-    // 2. Decide response based on AI parsing
-    let replyMessage = "";
-
-    if (aiResult.error) {
-        // Missing info -> ask the user for it
-        replyMessage = aiResult.error;
-    } else if (aiResult.name && aiResult.object && aiResult.details) {
-        // Complete info -> Save to DB
-        try {
-            const dbResult = await db.run(
-                `INSERT INTO orders (customer_name, phone, object_description, repair_details) 
-                 VALUES (?, ?, ?, ?)`,
-                [aiResult.name, senderPhone, aiResult.object, aiResult.details]
-            );
-
-            const orderId = dbResult.lastID;
-            replyMessage = `¡Hola ${aiResult.name}! Tu orden para el "${aiResult.object}" ha sido registrada exitosamente con el número de seguimiento OT-${orderId}. ¡En breve te contactaremos por el presupuesto!`;
-
-            console.log(`✅ Orden guardada: OT-${orderId}`);
-        } catch (dbError) {
-            console.error("❌ Database Error:", dbError);
-            replyMessage = "Hubo un error al guardar tu orden. Ya lo estamos revisando.";
+                    const orderId = dbResult.lastID;
+                    await message.reply(`¡Excelente ${session.name}!\n\nTu orden para la restauración de "${session.object}" ha sido registrada exitosamente con el número de seguimiento *OT-${orderId}*.\n\n¡En breve un humano te contactará por el presupuesto!`);
+                    console.log(`✅ Orden guardada en DB: OT-${orderId}`);
+                } catch (dbError) {
+                    console.error("❌ Database Error:", dbError);
+                    await message.reply("Hubo un error al guardar tu orden. Por favor intenta enviando cualquier mensaje para reiniciar.");
+                }
+                
+                // Clear session so the user can start over in the future
+                delete sessions[senderPhone];
+                break;
         }
     }
 
-    // 3. Send response back to WhatsApp
-    await message.reply(replyMessage);
     await chat.clearState();
-    console.log(`📤 Enviado a [${senderPhone}]: ${replyMessage.substring(0, 30)}...`);
 });
 
 // Start the database and then initialize the WhatsApp client
