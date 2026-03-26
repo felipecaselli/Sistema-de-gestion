@@ -4,7 +4,8 @@ lucide.createIcons();
 // --- Configuration & Initialization ---
 const supabaseUrl = 'https://rpvxndvoekhmzavpbgik.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwdnhuZHZvZWtobXphdnBiZ2lrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDc0NjcsImV4cCI6MjA5MDEyMzQ2N30.AjG_Ng-xPXgGfoVQL5G5a1Y-Zdcjtn8yagV29RBy910';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+// Evitar conflicto con la variable global 'supabase' de Supabase CDN:
+const dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 const DEFAULT_TENANT_ID = 'taller-demo';
 const orderStatuses = ['recibido', 'proceso', 'materiales', 'listo'];
 
@@ -24,7 +25,7 @@ let topClientsChartInstance = null;
 
 async function initData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('orders')
             .select('*')
             .eq('tenant_id', DEFAULT_TENANT_ID)
@@ -54,7 +55,7 @@ async function initData() {
 // Auto-Polling Realtime App Sync via Supabase
 async function pollData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('orders')
             .select('*')
             .eq('tenant_id', DEFAULT_TENANT_ID)
@@ -146,7 +147,7 @@ async function submitOrder() {
     };
 
     try {
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('orders')
             .insert([payload]);
 
@@ -182,7 +183,7 @@ async function cycleStatus(orderId) {
     updateAllViews();
 
     try {
-        await supabase
+        await dbClient
             .from('orders')
             .update({ status: newStatus })
             .eq('id', order.dbId)
@@ -251,7 +252,7 @@ async function deleteOrder(id) {
         if (!order) return;
         
         try {
-            await supabase
+            await dbClient
                 .from('orders')
                 .delete()
                 .eq('id', order.dbId)
