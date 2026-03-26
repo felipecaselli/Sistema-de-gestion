@@ -523,3 +523,30 @@ textarea.form-control {
     background-color: var(--bg-color);
     color: var(--primary-color);
 }
+
+/* Charts Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+.chart-card {
+    display: flex;
+    flex-direction: column;
+}
+.chart-card.full-width {
+    grid-column: 1 / -1;
+}
+.chart-container {
+    padding: 1rem;
+    position: relative;
+    width: 100%;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.chart-large {
+    height: 400px;
+}

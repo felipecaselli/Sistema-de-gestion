@@ -2,7 +2,7 @@
 lucide.createIcons();
 
 // --- Configuration & Initialization ---
-const STORAGE_KEY = 'craftflow_orders';
+const API_BASE = 'http://localhost:3000/api';
 const orderStatuses = ['recibido', 'proceso', 'materiales', 'listo'];
 
 const statusConfig = {
@@ -12,67 +12,40 @@ const statusConfig = {
     listo: { label: "Listo p/ Entrega", class: "status-ready" }
 };
 
-const defaultOrders = [
-    {
-        id: "OT-1025",
-        client: "María Gómez",
-        contact: "+54 9 11 4444-5555",
-        email: "maria@example.com",
-        object: "Sillón Luis XV",
-        service: "Restauración tapizado",
-        date: "2026-04-10",
-        budget: "45000",
-        status: "proceso",
-        wppStatus: "notified"
-    },
-    {
-        id: "OT-1026",
-        client: "Roberto Sánchez",
-        contact: "+54 9 11 2222-3333",
-        email: "",
-        object: "Mesa comedor pino",
-        service: "Lijado y barnizado",
-        date: "2026-04-02",
-        budget: "20000",
-        status: "listo",
-        wppStatus: "notified"
-    },
-    {
-        id: "OT-1027",
-        client: "Julieta Fernández",
-        contact: "+54 9 11 7777-8888",
-        email: "juli@example.com",
-        object: "Guitarra Criolla",
-        service: "Cambio de clavijas",
-        date: "2026-04-15",
-        budget: "12000",
-        status: "materiales",
-        wppStatus: "pending"
-    }
-];
-
 let globalOrders = [];
 
-function initData() {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) {
-        globalOrders = [...defaultOrders];
-        saveData();
-    } else {
-        globalOrders = JSON.parse(data);
+// --- Chart Instances ---
+let statusChartInstance = null;
+let revenueChartInstance = null;
+let topClientsChartInstance = null;
+
+async function initData() {
+    try {
+        const response = await fetch(`${API_BASE}/orders`);
+        if (response.ok) {
+            const data = await response.json();
+            globalOrders = data.map(o => ({
+                id: `OT-${o.id.toString().substring(0,8)}`,
+                dbId: o.id,
+                client: o.client_name,
+                contact: o.contact_phone,
+                email: o.email || '',
+                object: o.object_name,
+                service: o.service_details,
+                budget: o.budget || 0,
+                date: o.estimated_date || o.created_at.split('T')[0],
+                status: o.status,
+                wppStatus: o.wpp_status
+            }));
+        }
+    } catch (err) {
+        console.error("API Error: no se pudo cargar desde Supabase.", err);
     }
     updateAllViews();
 }
 
-function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(globalOrders));
-}
-
 function clearData() {
-    if (confirm("¿Estás seguro de que quieres restaurar los datos de prueba?")) {
-        localStorage.removeItem(STORAGE_KEY);
-        initData();
-    }
+    alert("Los datos ahora están en la nube (PostgreSQL/Supabase) y no pueden ser borrados con botón local.");
 }
 
 // --- DOM Elements ---
@@ -111,38 +84,42 @@ function closeOrderModal() {
     modalOverlay.classList.remove('open');
 }
 
-function submitOrder() {
+async function submitOrder() {
     const form = document.getElementById('new-order-form');
     if (!form.checkValidity()) {
         document.getElementById('hidden-submit').click();
         return;
     }
 
-    // Determine new ID
-    const maxNumber = globalOrders.reduce((max, order) => {
-        const num = parseInt(order.id.split('-')[1]);
-        return num > max ? num : max;
-    }, 1000);
-
-    const newOrder = {
-        id: `OT-${maxNumber + 1}`,
-        client: document.getElementById('form-client').value,
-        contact: document.getElementById('form-phone').value,
+    const payload = {
+        client_name: document.getElementById('form-client').value,
+        contact_phone: document.getElementById('form-phone').value,
         email: document.getElementById('form-email').value,
-        object: document.getElementById('form-object').value,
-        service: document.getElementById('form-service').value,
+        object_name: document.getElementById('form-object').value,
+        service_details: document.getElementById('form-service').value,
         budget: document.getElementById('form-budget').value,
-        date: document.getElementById('form-date').value,
+        estimated_date: document.getElementById('form-date').value,
         status: "recibido",
-        wppStatus: "pending"
+        wpp_status: "pending"
     };
 
-    globalOrders.unshift(newOrder); // add to top
-    saveData();
-    updateAllViews();
-    closeOrderModal();
-    // Simulate WhatsApp notification
-    alert(`Orden ${newOrder.id} creada exitosamente. WhatsApp automático omitido en entorno de prueba.`);
+    try {
+        const response = await fetch(`${API_BASE}/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            await initData(); // Refrescar los datos desde Supabase
+            closeOrderModal();
+        } else {
+            alert("Error del servidor al guardar la orden.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error de red al guardar la orden.");
+    }
 }
 
 // Close modal when clicking outside
@@ -152,16 +129,27 @@ modalOverlay.addEventListener('click', (e) => {
 
 
 // --- State Cycle ---
-function cycleStatus(orderId) {
+async function cycleStatus(orderId) {
     const order = globalOrders.find(o => o.id === orderId);
-    if (order) {
-        const currIdx = orderStatuses.indexOf(order.status);
-        const nextIdx = (currIdx + 1) % orderStatuses.length;
-        order.status = orderStatuses[nextIdx];
+    if (!order) return;
+    
+    const currIdx = orderStatuses.indexOf(order.status);
+    const nextIdx = (currIdx + 1) % orderStatuses.length;
+    const newStatus = orderStatuses[nextIdx];
 
-        // If it returns to recibido or process, pending... if listo -> wpp is pending manually notified
-        saveData();
-        updateAllViews();
+    // Optimistic UI Update
+    order.status = newStatus;
+    updateAllViews();
+
+    try {
+        await fetch(`${API_BASE}/orders/${order.dbId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+    } catch (e) {
+        console.error("Error al actualizar el estado de la orden.", e);
+        // Podríamos revertir el cambio optimista aquí en caso de error
     }
 }
 
@@ -173,9 +161,9 @@ function openWhatsApp(orderId) {
         let text = `Hola ${order.client}, somos del taller. Le avisamos que la orden *${order.id}* (${order.object}) actualmente se encuentra: *${sc}*.\nCualquier consulta estamos a su disposición.`;
         let url = `https://api.whatsapp.com/send?phone=${order.contact.replace(/\D/g, '')}&text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
-
+        
+        // As a mock for MVP, we'll optimistically update wppStatus localy
         order.wppStatus = 'notified';
-        saveData();
         updateAllViews();
     }
 }
@@ -186,6 +174,7 @@ function updateAllViews() {
     renderRecentOrders();
     renderAllOrders();
     renderCustomers();
+    renderReports();
     lucide.createIcons(); // refresh icons injected
 }
 
@@ -216,11 +205,17 @@ function generateActionButtons(orderId, isDashboard) {
     `;
 }
 
-function deleteOrder(id) {
+async function deleteOrder(id) {
     if (confirm("¿Eliminar definitivamente la orden " + id + "?")) {
-        globalOrders = globalOrders.filter(o => o.id !== id);
-        saveData();
-        updateAllViews();
+        const order = globalOrders.find(o => o.id === id);
+        if (!order) return;
+        
+        try {
+            await fetch(`${API_BASE}/orders/${order.dbId}`, { method: 'DELETE' });
+            await initData();
+        } catch (e) {
+            console.error("Error al borrar", e);
+        }
     }
 }
 
@@ -323,6 +318,133 @@ function renderCustomers() {
         `;
         tb.appendChild(tr);
     });
+}
+
+function renderReports() {
+    // 1. KPI Total Ingresos Estimados
+    const totalIngresos = globalOrders.reduce((sum, o) => {
+        return sum + (parseFloat(o.budget) || 0);
+    }, 0);
+    const kpiIngresos = document.getElementById('kpi-ingresos');
+    if (kpiIngresos) kpiIngresos.textContent = `$${totalIngresos.toLocaleString('es-AR')}`;
+
+    // Prepare data for charts
+    if (typeof Chart === 'undefined') return;
+
+    // Destroy existing charts to replace them (avoid canvas reuse issue)
+    if (statusChartInstance) statusChartInstance.destroy();
+    if (revenueChartInstance) revenueChartInstance.destroy();
+    if (topClientsChartInstance) topClientsChartInstance.destroy();
+
+    // Chart 1: Distribución de Estados
+    const ctxStatus = document.getElementById('statusChart');
+    if (ctxStatus) {
+        const statusCounts = orderStatuses.map(st => globalOrders.filter(o => o.status === st).length);
+        const statusLabels = orderStatuses.map(st => statusConfig[st].label);
+        
+        statusChartInstance = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusCounts,
+                    backgroundColor: [
+                        '#EEF2FF', // recibido (primary-light)
+                        '#FEF3C7', // proceso (warning-light)
+                        '#FEE2E2', // materiales (danger-light)
+                        '#D1FAE5'  // listo (secondary-light)
+                    ],
+                    borderColor: [
+                        '#4F46E5', // primary
+                        '#F59E0B', // warning
+                        '#EF4444', // danger
+                        '#10B981'  // secondary
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
+    // Chart 2: Ingresos por Mes
+    const ctxRevenue = document.getElementById('revenueChart');
+    if (ctxRevenue) {
+        const ingresosPorMes = {};
+        globalOrders.forEach(o => {
+            if (!o.date) return;
+            const d = new Date(o.date);
+            const mesAnio = `${d.getMonth() + 1}/${d.getFullYear()}`;
+            if (!ingresosPorMes[mesAnio]) ingresosPorMes[mesAnio] = 0;
+            ingresosPorMes[mesAnio] += (parseFloat(o.budget) || 0);
+        });
+
+        const mesesLabels = Object.keys(ingresosPorMes);
+        const mesesData = Object.values(ingresosPorMes);
+
+        revenueChartInstance = new Chart(ctxRevenue, {
+            type: 'bar',
+            data: {
+                labels: mesesLabels.length ? mesesLabels : ['Sin datos'],
+                datasets: [{
+                    label: 'Ingresos ($)',
+                    data: mesesData.length ? mesesData : [0],
+                    backgroundColor: '#4F46E5',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // Chart 3: Top Clientes Frecuentes
+    const ctxClients = document.getElementById('topClientsChart');
+    if (ctxClients) {
+        const cmap = new Map();
+        globalOrders.forEach(o => {
+            const key = o.client;
+            if (!cmap.has(key)) cmap.set(key, 0);
+            cmap.set(key, cmap.get(key) + 1);
+        });
+
+        // Ordenar clientes por cantidad de trabajos y tomar los primeros 5
+        const sortedClients = Array.from(cmap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const clientLabels = sortedClients.map(c => c[0]);
+        const clientData = sortedClients.map(c => c[1]);
+
+        topClientsChartInstance = new Chart(ctxClients, {
+            type: 'bar',
+            data: {
+                labels: clientLabels.length ? clientLabels : ['Sin datos'],
+                datasets: [{
+                    label: 'Trabajos',
+                    data: clientData.length ? clientData : [0],
+                    backgroundColor: '#10B981',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { 
+                    x: { beginAtZero: true, ticks: { stepSize: 1 } } 
+                }
+            }
+        });
+    }
 }
 
 // Filter listeners
