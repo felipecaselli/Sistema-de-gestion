@@ -7,18 +7,23 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Evitar conflicto con la variable global 'supabase' de Supabase CDN:
 const dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 const DEFAULT_TENANT_ID = 'taller-demo';
-const orderStatuses = ['recibido', 'proceso', 'materiales', 'listo'];
+const orderStatuses = ['recibido', 'proceso', 'materiales', 'listo', 'entregado'];
 
 const statusConfig = {
     recibido: { label: "Recibido", class: "status-received" },
     proceso: { label: "En Proceso", class: "status-process" },
     materiales: { label: "Espera Mat.", class: "status-materials" },
-    listo: { label: "Listo p/ Entrega", class: "status-ready" }
+    listo: { label: "Listo p/ Entrega", class: "status-ready" },
+    entregado: { label: "Entregado", class: "status-delivered" }
 };
 
 let globalOrders = [];
 let appNotifications = [];
 let currentUser = localStorage.getItem('currentUser') || '';
+let notifiedDeadlines = new Set();
+
+// --- Agenda State ---
+let currentAgendaDate = new Date();
 
 // --- Chart Instances ---
 let statusChartInstance = null;
@@ -290,11 +295,13 @@ function updateAllViews() {
     renderAllOrders();
     renderCustomers();
     renderReports();
+    renderAgenda();
+    checkDeadlines();
     lucide.createIcons(); // refresh icons injected
 }
 
 function renderKPIs() {
-    const activas = globalOrders.filter(o => o.status !== 'listo').length;
+    const activas = globalOrders.filter(o => o.status !== 'listo' && o.status !== 'entregado').length;
     const listas = globalOrders.filter(o => o.status === 'listo').length;
     const materiales = globalOrders.filter(o => o.status === 'materiales').length;
 
@@ -343,7 +350,8 @@ function renderRecentOrders() {
     if (!tb) return;
     tb.innerHTML = '';
 
-    globalOrders.slice(0, 3).forEach(order => {
+    const recentPending = globalOrders.filter(o => o.status !== 'entregado').slice(0, 3);
+    recentPending.forEach(order => {
         const sc = statusConfig[order.status];
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -457,6 +465,14 @@ function renderReports() {
     const kpiIngresos = document.getElementById('kpi-ingresos');
     if (kpiIngresos) kpiIngresos.textContent = `$${totalIngresos.toLocaleString('es-AR')}`;
 
+    // 1b. KPI Ingresos Efectivos (Solo Entregados)
+    const ingresosEfectivos = globalOrders.reduce((sum, o) => {
+        if (o.status === 'entregado') return sum + (parseFloat(o.budget) || 0);
+        return sum;
+    }, 0);
+    const kpiEfectivos = document.getElementById('kpi-ingresos-efectivos');
+    if (kpiEfectivos) kpiEfectivos.textContent = `$${ingresosEfectivos.toLocaleString('es-AR')}`;
+
     // Prepare data for charts
     if (typeof Chart === 'undefined') return;
 
@@ -481,13 +497,15 @@ function renderReports() {
                         '#EEF2FF', // recibido (primary-light)
                         '#FEF3C7', // proceso (warning-light)
                         '#FEE2E2', // materiales (danger-light)
-                        '#D1FAE5'  // listo (secondary-light)
+                        '#D1FAE5', // listo (secondary-light)
+                        '#F3F4F6'  // entregado (delivered-light)
                     ],
                     borderColor: [
                         '#4F46E5', // primary
                         '#F59E0B', // warning
                         '#EF4444', // danger
-                        '#10B981'  // secondary
+                        '#10B981', // secondary
+                        '#6B7280'  // delivered gray
                     ],
                     borderWidth: 1
                 }]
@@ -576,9 +594,132 @@ function renderReports() {
     }
 }
 
+// --- Agenda Rendering ---
+function prevMonth() {
+    currentAgendaDate.setMonth(currentAgendaDate.getMonth() - 1);
+    renderAgenda();
+}
+
+function nextMonth() {
+    currentAgendaDate.setMonth(currentAgendaDate.getMonth() + 1);
+    renderAgenda();
+}
+
+function changeCalendarDate() {
+    const monthSelect = document.getElementById('calendar-month-select');
+    const yearSelect = document.getElementById('calendar-year-select');
+    if (monthSelect && yearSelect) {
+        currentAgendaDate.setFullYear(parseInt(yearSelect.value, 10));
+        currentAgendaDate.setMonth(parseInt(monthSelect.value, 10));
+        renderAgenda();
+    }
+}
+
+function renderAgenda() {
+    const calendarDaysEl = document.getElementById('calendar-days');
+    if (!calendarDaysEl) return;
+
+    const year = currentAgendaDate.getFullYear();
+    const month = currentAgendaDate.getMonth();
+
+    const monthSelect = document.getElementById('calendar-month-select');
+    const yearSelect = document.getElementById('calendar-year-select');
+
+    if (yearSelect && yearSelect.options.length === 0) {
+        const currentYearObj = new Date().getFullYear();
+        for (let y = currentYearObj - 2; y <= currentYearObj + 5; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            yearSelect.appendChild(opt);
+        }
+    }
+
+    if (monthSelect && yearSelect) {
+        monthSelect.value = month;
+        yearSelect.value = year;
+    }
+
+    calendarDaysEl.innerHTML = '';
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    // Blank cells for previous month
+    for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'calendar-day empty';
+        calendarDaysEl.appendChild(emptyCell);
+    }
+
+    // Days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day';
+        if (isCurrentMonth && day === today.getDate()) {
+            dayCell.classList.add('today');
+        }
+
+        const dateNum = document.createElement('div');
+        dateNum.className = 'calendar-date-number';
+        dateNum.textContent = day;
+        dayCell.appendChild(dateNum);
+
+        // Find orders for this day
+        // Orders date format is YYYY-MM-DD
+        const loopDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        const dayOrders = globalOrders.filter(o => {
+            if (!o.date) return false;
+            return o.date.startsWith(loopDateStr);
+        });
+
+        dayOrders.forEach(order => {
+            const ev = document.createElement('div');
+            ev.className = `calendar-event status-${order.status}`;
+            ev.textContent = `#${order.id} - ${order.client}`;
+            
+            const cleanService = order.service ? order.service.replace(/\[Añadido por:.*?\]\n?/g, '').trim() : '';
+            ev.title = `Cliente: ${order.client}\nProducto: ${order.object}\nDetalle/Problema: ${cleanService}\nEstado: ${statusConfig[order.status].label}`;
+            
+            dayCell.appendChild(ev);
+        });
+
+        calendarDaysEl.appendChild(dayCell);
+    }
+}
+
+// --- Notifications Deadlines ---
+function checkDeadlines() {
+    const msInDay = 86400000;
+    const tomorrowDate = new Date(Date.now() + msInDay);
+    const tomorrowStr = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+
+    globalOrders.forEach(o => {
+        if (o.status !== 'listo' && o.status !== 'entregado' && o.date === tomorrowStr) {
+            if (!notifiedDeadlines.has(o.id)) {
+                notifiedDeadlines.add(o.id);
+                showToast(`¡Aviso! Trabajo #${o.id} de ${o.client} vence mañana.`);
+                appNotifications.push({
+                    title: `Vencimiento Próximo: ${o.client}`,
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                });
+                if(typeof updateNotificationsUI === 'function') updateNotificationsUI();
+            }
+        }
+    });
+}
+
 // Filter listeners
 filterText.addEventListener('input', () => { renderAllOrders(); lucide.createIcons(); });
-globalSearch.addEventListener('input', () => { renderAllOrders(); lucide.createIcons(); });
+globalSearch.addEventListener('input', () => { 
+    goToOrders();
+    renderAllOrders(); 
+    lucide.createIcons(); 
+});
 filterStatus.addEventListener('change', () => { renderAllOrders(); lucide.createIcons(); });
 
 // --- Notifications UI ---
@@ -642,12 +783,15 @@ function toggleDarkMode() {
 function updateUserUI() {
     const avatar = document.getElementById('user-avatar');
     const nameDisplay = document.getElementById('user-name-display');
-    if (currentUser) {
-        if(avatar) avatar.textContent = currentUser.charAt(0).toUpperCase();
-        if(nameDisplay) nameDisplay.textContent = currentUser;
-    } else {
-        if(avatar) avatar.textContent = '?';
-        if(nameDisplay) nameDisplay.textContent = 'Desconocido';
+    const greetingTitle = document.getElementById('greeting-title');
+
+    let displayUser = currentUser ? currentUser : 'Desconocido';
+
+    if (avatar) avatar.textContent = currentUser ? currentUser.charAt(0).toUpperCase() : '?';
+    if (nameDisplay) nameDisplay.textContent = displayUser;
+
+    if (greetingTitle) {
+        greetingTitle.innerHTML = `Hola ${displayUser}, <span style="color:var(--text-secondary);font-weight:400">bienvenido al taller</span>`;
     }
 }
 

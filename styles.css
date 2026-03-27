@@ -155,6 +155,7 @@ p { color: var(--text-secondary); line-height: 1.5; }
     font-family: inherit;
     font-size: 0.9rem;
     transition: var(--transition);
+    color: var(--text-primary);
 }
 .header-search input:focus {
     outline: none;
@@ -478,6 +479,9 @@ tbody tr:last-child td {
 .status-ready { background-color: var(--secondary-light); color: var(--secondary-color); }
 .status-ready::before { background-color: var(--secondary-color); }
 
+.status-delivered { background-color: var(--border-color); color: var(--text-secondary); }
+.status-delivered::before { background-color: var(--text-secondary); }
+
 /* Modal */
 .modal-overlay {
     position: fixed;
@@ -652,3 +656,102 @@ textarea.form-control {
 .chart-large {
     height: 400px;
 }
+
+/* Agenda / Calendar */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    width: 100%;
+}
+.calendar-weekdays {
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 0.5rem;
+}
+.calendar-day-header {
+    padding: 0.5rem;
+}
+.calendar-body {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background-color: var(--bg-color);
+    gap: 1px;
+}
+.calendar-day {
+    background-color: var(--surface-color);
+    min-height: 120px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: var(--transition);
+}
+.calendar-day:hover {
+    background-color: rgba(79, 70, 229, 0.02);
+}
+.calendar-day.empty {
+    background-color: var(--bg-color);
+}
+.calendar-date-number {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    align-self: flex-end;
+}
+.calendar-day.today .calendar-date-number {
+    background-color: var(--primary-color);
+    color: white;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+.calendar-event {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    display: block;
+    border-left: 3px solid transparent;
+    transition: transform 0.1s ease;
+}
+.calendar-event:hover {
+    transform: scale(1.02);
+}
+.calendar-event.status-recibido {
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border-left-color: var(--primary-color);
+}
+.calendar-event.status-proceso {
+    background-color: var(--warning-light);
+    color: var(--warning-color);
+    border-left-color: var(--warning-color);
+}
+.calendar-event.status-materiales {
+    background-color: var(--danger-light);
+    color: var(--danger-color);
+    border-left-color: var(--danger-color);
+}
+.calendar-event.status-listo {
+    background-color: var(--secondary-light);
+    color: var(--secondary-color);
+    border-left-color: var(--secondary-color);
+}
+.calendar-event.status-entregado {
+    background-color: var(--border-color);
+    color: var(--text-secondary);
+    border-left-color: var(--text-secondary);
+}
+
