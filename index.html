@@ -56,7 +56,6 @@
                     <i data-lucide="search" class="search-icon"></i>
                     <input type="text" id="global-search" placeholder="Buscar órdenes, clientes...">
                 </div>
-                </div>
                 <div class="header-actions" style="position: relative;">
                     <button class="icon-btn" title="Actualizar" onclick="initData()">
                         <i data-lucide="refresh-cw"></i>
@@ -76,9 +75,9 @@
                         </div>
                     </div>
                     
-                    <div class="user-profile">
-                        <div class="avatar">EB</div>
-                        <div style="font-size: 0.9rem; font-weight: 500;">El Buen Carpintero</div>
+                    <div class="user-profile" onclick="openLoginModal()" title="Cambiar usuario">
+                        <div class="avatar" id="user-avatar">?</div>
+                        <div style="font-size: 0.9rem; font-weight: 500;" id="user-name-display">Identificando...</div>
                     </div>
                 </div>
             </header>
@@ -282,7 +281,7 @@
                 </div>
                 <div class="card" style="padding:2rem;">
                     <p style="color:var(--text-secondary)">Ajusta los detalles del taller y servicios ofrecidos.</p>
-                    <div style="display:flex; gap:1rem; margin-top:1rem;">
+                    <div style="display:flex; justify-content:space-between; margin-top:1rem;">
                         <button class="primary-btn" onclick="clearData()">Borrar Datos (Reiniciar)</button>
                         <button class="btn-secondary" id="dark-mode-toggle" onclick="toggleDarkMode()">
                             <i data-lucide="moon" id="dark-mode-icon" style="width:18px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
@@ -355,6 +354,29 @@
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeOrderModal()">Cancelar</button>
                 <button type="button" class="primary-btn" onclick="submitOrder()">Guardar Orden</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Login -->
+    <div class="modal-overlay" id="login-modal" style="z-index: 9999;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div class="modal-header" style="justify-content: center; position: relative;">
+                <h2 class="card-title" style="margin:0;">Identificación de Usuario</h2>
+                <!-- Botón de cerrar por si quieren cerrarlo manualmente (solo visible si ya hay usuario) -->
+                <button class="icon-btn" id="login-close-btn" style="display:none; position: absolute; right: 1rem; top: 1rem;" onclick="closeLoginModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    Ingresa tu nombre para saber quién registra cada cliente/orden en esta computadora.
+                </p>
+                <form id="login-form">
+                    <input type="text" id="form-username" class="form-control" placeholder="Ej: Martín o Bot" required style="width:100%; text-align: center; font-size: 1.1rem; padding: 0.8rem;">
+                    <button type="submit" id="hidden-login-submit" style="display:none"></button>
+                </form>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button type="button" class="primary-btn" style="width: 100%; justify-content: center;" onclick="submitLogin()">Confirmar Acceso</button>
             </div>
         </div>
     </div>

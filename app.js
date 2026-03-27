@@ -18,6 +18,7 @@ const statusConfig = {
 
 let globalOrders = [];
 let appNotifications = [];
+let currentUser = localStorage.getItem('currentUser') || '';
 
 // --- Chart Instances ---
 let statusChartInstance = null;
@@ -203,13 +204,16 @@ async function submitOrder() {
         return;
     }
 
+    const baseServiceDetails = document.getElementById('form-service').value;
+    const finalServiceDetails = `[Añadido por: ${currentUser || 'Desconocido'}]\n${baseServiceDetails}`;
+
     const payload = {
         tenant_id: DEFAULT_TENANT_ID,
         client_name: document.getElementById('form-client').value,
         contact_phone: document.getElementById('form-phone').value,
         email: document.getElementById('form-email').value,
         object_name: document.getElementById('form-object').value,
-        service_details: document.getElementById('form-service').value,
+        service_details: finalServiceDetails,
         budget: document.getElementById('form-budget').value,
         estimated_date: document.getElementById('form-date').value,
         status: "recibido",
@@ -634,9 +638,55 @@ function toggleDarkMode() {
     }
 }
 
+// --- Auth UI ---
+function updateUserUI() {
+    const avatar = document.getElementById('user-avatar');
+    const nameDisplay = document.getElementById('user-name-display');
+    if (currentUser) {
+        if(avatar) avatar.textContent = currentUser.charAt(0).toUpperCase();
+        if(nameDisplay) nameDisplay.textContent = currentUser;
+    } else {
+        if(avatar) avatar.textContent = '?';
+        if(nameDisplay) nameDisplay.textContent = 'Desconocido';
+    }
+}
+
+function openLoginModal() {
+    document.getElementById('form-username').value = currentUser;
+    document.getElementById('login-modal').classList.add('open');
+    document.getElementById('login-close-btn').style.display = currentUser ? 'block' : 'none';
+}
+
+function closeLoginModal() {
+    if(!currentUser) {
+        alert("Debes ingresar un nombre para continuar.");
+        return;
+    }
+    document.getElementById('login-modal').classList.remove('open');
+}
+
+function submitLogin() {
+    const name = document.getElementById('form-username').value.trim();
+    if (!name) {
+        document.getElementById('hidden-login-submit').click(); // trigger HTML5 validation
+        return;
+    }
+    currentUser = name;
+    localStorage.setItem('currentUser', currentUser);
+    updateUserUI();
+    document.getElementById('login-modal').classList.remove('open');
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     initData();
+    
+    // Auth Init
+    if (!currentUser) {
+        openLoginModal();
+    } else {
+        updateUserUI();
+    }
     
     const isDark = localStorage.getItem('darkMode') === 'true';
     if (isDark) {
