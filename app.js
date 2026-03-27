@@ -17,6 +17,7 @@ const statusConfig = {
 };
 
 let globalOrders = [];
+let appNotifications = [];
 
 // --- Chart Instances ---
 let statusChartInstance = null;
@@ -82,6 +83,15 @@ async function pollData() {
                 // Disparar Notificación Visual si entró un Nuevo Trabajo (ya sea del bot o manual en otra PC)
                 if (globalOrders.length > 0 && newOrders.length > globalOrders.length) {
                     showToast("¡Nuevo cliente o trabajo registrado!");
+                    const currDbIds = new Set(globalOrders.map(o => o.dbId));
+                    const added = newOrders.filter(o => !currDbIds.has(o.dbId));
+                    added.forEach(newOrd => {
+                        appNotifications.push({
+                            title: `Nuevo Cliente: ${newOrd.client}`,
+                            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        });
+                    });
+                    if(typeof updateNotificationsUI === 'function') updateNotificationsUI();
                 }
 
                 globalOrders = newOrders;
@@ -567,9 +577,77 @@ filterText.addEventListener('input', () => { renderAllOrders(); lucide.createIco
 globalSearch.addEventListener('input', () => { renderAllOrders(); lucide.createIcons(); });
 filterStatus.addEventListener('change', () => { renderAllOrders(); lucide.createIcons(); });
 
+// --- Notifications UI ---
+function updateNotificationsUI() {
+    const badge = document.getElementById('notification-badge');
+    const list = document.getElementById('notifications-list');
+    if(!badge || !list) return;
+
+    if (appNotifications.length > 0) {
+        badge.style.display = 'flex';
+        badge.textContent = appNotifications.length;
+        
+        list.innerHTML = '';
+        appNotifications.forEach(n => {
+            list.innerHTML += `
+                <div class="notification-item" onclick="goToOrders(); toggleNotifications()">
+                    <div class="notification-icon"><i data-lucide="user-plus"></i></div>
+                    <div class="notification-content">
+                        <div class="notification-title">${n.title}</div>
+                        <div class="notification-time">${n.time}</div>
+                    </div>
+                </div>
+            `;
+        });
+        lucide.createIcons();
+    } else {
+        badge.style.display = 'none';
+        list.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.9rem;">No hay notificaciones nuevas</div>';
+    }
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notifications-dropdown');
+    if(dropdown) dropdown.classList.toggle('active');
+}
+
+function clearNotifications() {
+    appNotifications = [];
+    updateNotificationsUI();
+    const dropdown = document.getElementById('notifications-dropdown');
+    if(dropdown) dropdown.classList.remove('active');
+}
+
+// --- Dark Mode ---
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDark);
+    
+    // Update button UI
+    const textSpan = document.getElementById('dark-mode-text');
+    const iconIcon = document.getElementById('dark-mode-icon');
+    if (textSpan && iconIcon) {
+        textSpan.textContent = isDark ? 'Desactivar Modo Oscuro' : 'Activar Modo Oscuro';
+        iconIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+        lucide.createIcons();
+    }
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     initData();
+    
+    const isDark = localStorage.getItem('darkMode') === 'true';
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+        const textSpan = document.getElementById('dark-mode-text');
+        const iconIcon = document.getElementById('dark-mode-icon');
+        if (textSpan && iconIcon) {
+            textSpan.textContent = 'Desactivar Modo Oscuro';
+            iconIcon.setAttribute('data-lucide', 'sun');
+        }
+    }
     
     // Configura actualización constante cada 10 segundos
     setInterval(pollData, 10000); 

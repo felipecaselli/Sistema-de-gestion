@@ -21,7 +21,7 @@
         <aside class="sidebar">
             <div class="sidebar-logo">
                 <i data-lucide="hammer"></i>
-                <span>CraftFlow</span>
+                <span>CMB</span>
             </div>
             <ul class="nav-menu">
                 <li class="nav-item active" data-target="dashboard">
@@ -56,14 +56,26 @@
                     <i data-lucide="search" class="search-icon"></i>
                     <input type="text" id="global-search" placeholder="Buscar órdenes, clientes...">
                 </div>
-                <div class="header-actions">
-                    <button class="icon-btn" title="Notificaciones" onclick="clearData()">
+                </div>
+                <div class="header-actions" style="position: relative;">
+                    <button class="icon-btn" title="Actualizar" onclick="initData()">
                         <i data-lucide="refresh-cw"></i>
                     </button>
-                    <button class="icon-btn" title="Notificaciones">
+                    <button class="icon-btn" title="Notificaciones" id="notification-btn" onclick="toggleNotifications()">
                         <i data-lucide="bell"></i>
-                        <span class="badge"></span>
+                        <span class="notification-badge" id="notification-badge" style="display:none;">0</span>
                     </button>
+                    
+                    <div class="notifications-dropdown" id="notifications-dropdown">
+                        <div class="notifications-header">
+                            <span>Notificaciones</span>
+                            <button class="icon-btn" style="padding:0; width:18px; height:18px;" onclick="clearNotifications()" title="Limpiar"><i data-lucide="x"></i></button>
+                        </div>
+                        <div class="notifications-list" id="notifications-list">
+                            <div style="padding: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.9rem;">No hay notificaciones nuevas</div>
+                        </div>
+                    </div>
+                    
                     <div class="user-profile">
                         <div class="avatar">EB</div>
                         <div style="font-size: 0.9rem; font-weight: 500;">El Buen Carpintero</div>
@@ -270,8 +282,13 @@
                 </div>
                 <div class="card" style="padding:2rem;">
                     <p style="color:var(--text-secondary)">Ajusta los detalles del taller y servicios ofrecidos.</p>
-                    <button class="primary-btn" style="margin-top:1rem" onclick="clearData()">Borrar Datos
-                        (Reiniciar)</button>
+                    <div style="display:flex; gap:1rem; margin-top:1rem;">
+                        <button class="primary-btn" onclick="clearData()">Borrar Datos (Reiniciar)</button>
+                        <button class="btn-secondary" id="dark-mode-toggle" onclick="toggleDarkMode()">
+                            <i data-lucide="moon" id="dark-mode-icon" style="width:18px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
+                            <span id="dark-mode-text">Activar Modo Oscuro</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
