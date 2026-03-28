@@ -191,6 +191,22 @@ function goToOrders() {
     document.querySelector('[data-target="orders"]').click();
 }
 
+let isSidebarCollapsed = false;
+function toggleSidebar() {
+    isSidebarCollapsed = !isSidebarCollapsed;
+    document.body.classList.toggle('sidebar-collapsed', isSidebarCollapsed);
+
+    const icon = document.getElementById('sidebar-toggle-icon');
+    if (icon) {
+        if (isSidebarCollapsed) {
+            icon.setAttribute('data-lucide', 'chevrons-right');
+        } else {
+            icon.setAttribute('data-lucide', 'chevrons-left');
+        }
+        lucide.createIcons();
+    }
+}
+
 // --- Modal Handlers ---
 function openOrderModal() {
     document.getElementById('new-order-form').reset();
@@ -201,6 +217,241 @@ function openOrderModal() {
 function closeOrderModal() {
     modalOverlay.classList.remove('open');
 }
+
+// --- Complete Order Modal (Cost Calculation) ---
+let pendingCompleteOrderId = null;
+
+function loadCompleteCostSettings() {
+    const savedRate = Number(localStorage.getItem('hourlyRate') || 0);
+    document.getElementById('complete-hourly-rate').value = savedRate || '';
+}
+
+function saveCompleteCostSettings() {
+    const rate = Number(document.getElementById('complete-hourly-rate').value) || 0;
+    localStorage.setItem('hourlyRate', rate);
+    calculateCompleteCost();
+}
+
+function calculateCompleteCost() {
+    const rate = Number(document.getElementById('complete-hourly-rate').value) || 0;
+    const hours = Number(document.getElementById('complete-labor-hours').value) || 0;
+    const material = Number(document.getElementById('complete-material-cost').value) || 0;
+    const budget = Number(document.getElementById('complete-budget').value) || 0;
+
+    const laborCost = rate * hours;
+    const totalCost = laborCost + material;
+    const margin = budget - totalCost;
+    const marginPct = budget > 0 ? (margin / budget) * 100 : 0;
+
+    const targetEl = document.getElementById('complete-cost-text');
+    if (!targetEl) return;
+
+    targetEl.innerHTML = `Costo mano de obra: $${laborCost.toFixed(2)}<br>
+        Costo insumos: $${material.toFixed(2)}<br>
+        Costo total estimado: $${totalCost.toFixed(2)}<br>
+        <strong>Margen proyectado: $${margin.toFixed(2)} (${marginPct.toFixed(1)}%)</strong>`;
+
+    if (margin < 0) {
+        targetEl.innerHTML += '<br><span style="color:#b45309;">⚠️ Cuidado: estás debajo del costo.</span>';
+    }
+}
+
+function openCompleteOrderModal(orderId) {
+    pendingCompleteOrderId = orderId;
+    document.getElementById('complete-order-form').reset();
+    
+    const order = globalOrders.find(o => o.id === orderId);
+    if (order) {
+        document.getElementById('complete-budget').value = Number(order.budget || 0).toFixed(2);
+    }
+    
+    loadCompleteCostSettings();
+    calculateCompleteCost();
+    document.getElementById('complete-order-modal').classList.add('open');
+}
+
+function closeCompleteOrderModal() {
+    document.getElementById('complete-order-modal').classList.remove('open');
+    pendingCompleteOrderId = null;
+}
+
+async function submitCompleteOrder() {
+    const form = document.getElementById('complete-order-form');
+    if (!form.checkValidity()) {
+        document.getElementById('hidden-complete-submit').click();
+        return;
+    }
+
+    if (!pendingCompleteOrderId) return;
+
+    const rate = Number(document.getElementById('complete-hourly-rate').value) || 0;
+    const hours = Number(document.getElementById('complete-labor-hours').value) || 0;
+    const material = Number(document.getElementById('complete-material-cost').value) || 0;
+
+    const order = globalOrders.find(o => o.id === pendingCompleteOrderId);
+    if (!order) return;
+
+    const laborCost = rate * hours;
+    const totalCost = laborCost + material;
+    const budget = Number(order.budget || 0);
+    const margin = budget - totalCost;
+    const marginPct = budget > 0 ? (margin / budget) * 100 : 0;
+
+    const costText = `\n\n---\nEscandallo Final:\n- Costo hora: $${rate.toFixed(2)}\n- Horas trabajadas: ${hours.toFixed(2)}\n- Costo mano de obra: $${laborCost.toFixed(2)}\n- Costo insumos: $${material.toFixed(2)}\n- Costo total: $${totalCost.toFixed(2)}\n- Margen: $${margin.toFixed(2)} (${marginPct.toFixed(1)}%)\n---`;
+
+    const baseServiceDetails = order.service || '';
+    const finalServiceDetails = `${baseServiceDetails}${costText}`;
+
+    try {
+        await dbClient
+            .from('orders')
+            .update({
+                status: 'listo',
+                service_details: finalServiceDetails
+            })
+            .eq('id', order.dbId)
+            .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        await initData();
+        closeCompleteOrderModal();
+        showToast("Orden finalizada y marcada como Listo p/ Entrega");
+    } catch (e) {
+        console.error("Error al completar orden", e);
+        alert("Error al guardar los costos.");
+    }
+}
+
+// --- Edit Order Modal ---
+let pendingEditOrderId = null;
+
+function openEditOrderModal(orderId) {
+    pendingEditOrderId = orderId;
+    const order = globalOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    document.getElementById('edit-order-id-display').textContent = order.id;
+    document.getElementById('edit-form-client').value = order.client;
+    document.getElementById('edit-form-phone').value = order.contact;
+    document.getElementById('edit-form-email').value = order.email || '';
+    document.getElementById('edit-form-object').value = order.object;
+    
+    // Extraer solo la descripción base (sin escandallo)
+    let serviceText = order.service || '';
+    if (serviceText.includes('---\nEscandallo')) {
+        serviceText = serviceText.split('---\nEscandallo')[0];
+    }
+    document.getElementById('edit-form-service').value = serviceText;
+    document.getElementById('edit-form-budget').value = Number(order.budget || 0).toFixed(2);
+    document.getElementById('edit-form-date').value = order.date;
+
+    document.getElementById('edit-order-modal').classList.add('open');
+}
+
+function closeEditOrderModal() {
+    document.getElementById('edit-order-modal').classList.remove('open');
+    pendingEditOrderId = null;
+}
+
+async function submitEditOrder() {
+    const form = document.getElementById('edit-order-form');
+    if (!form.checkValidity()) {
+        document.getElementById('hidden-edit-submit').click();
+        return;
+    }
+
+    if (!pendingEditOrderId) return;
+
+    const order = globalOrders.find(o => o.id === pendingEditOrderId);
+    if (!order) return;
+
+    try {
+        await dbClient
+            .from('orders')
+            .update({
+                client_name: document.getElementById('edit-form-client').value,
+                contact_phone: document.getElementById('edit-form-phone').value,
+                email: document.getElementById('edit-form-email').value,
+                object_name: document.getElementById('edit-form-object').value,
+                service_details: document.getElementById('edit-form-service').value,
+                budget: document.getElementById('edit-form-budget').value,
+                estimated_date: document.getElementById('edit-form-date').value
+            })
+            .eq('id', order.dbId)
+            .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        await initData();
+        closeEditOrderModal();
+        showToast("Orden actualizada correctamente");
+    } catch (e) {
+        console.error("Error al editar orden", e);
+        alert("Error al guardar los cambios.");
+    }
+}
+
+// --- View Order Modal (Costs & Details) ---
+let pendingViewOrderId = null;
+
+function openViewOrderModal(orderId) {
+    pendingViewOrderId = orderId;
+    const order = globalOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    document.getElementById('view-order-id-display').textContent = order.id;
+    document.getElementById('view-client-name').textContent = order.client;
+    document.getElementById('view-object-name').textContent = order.object;
+    document.getElementById('view-budget').textContent = Number(order.budget || 0).toLocaleString('es-AR');
+    document.getElementById('view-status').textContent = statusConfig[order.status]?.label || order.status;
+    document.getElementById('view-date').textContent = order.formattedDate || order.date;
+
+    // Extraer solo la descripción base (sin escandallo)
+    let serviceText = order.service || '';
+    if (serviceText.includes('---\nEscandallo')) {
+        serviceText = serviceText.split('---\nEscandallo')[0];
+    }
+    document.getElementById('view-service-desc').textContent = serviceText;
+
+    // Extraer escandallo si existe
+    let costText = '';
+    if (order.service && order.service.includes('---\nEscandallo')) {
+        costText = '---\nEscandallo' + order.service.split('---\nEscandallo')[1];
+    } else {
+        costText = 'Sin cálculo de costo aún.';
+    }
+    document.getElementById('view-cost-text').textContent = costText;
+    document.getElementById('view-edit-budget').value = Number(order.budget || 0).toFixed(2);
+
+    document.getElementById('view-order-modal').classList.add('open');
+}
+
+function closeViewOrderModal() {
+    document.getElementById('view-order-modal').classList.remove('open');
+    pendingViewOrderId = null;
+}
+
+async function updateOrderBudget() {
+    if (!pendingViewOrderId) return;
+
+    const order = globalOrders.find(o => o.id === pendingViewOrderId);
+    if (!order) return;
+
+    const newBudget = Number(document.getElementById('view-edit-budget').value) || 0;
+
+    try {
+        await dbClient
+            .from('orders')
+            .update({ budget: newBudget })
+            .eq('id', order.dbId)
+            .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        await initData();
+        closeViewOrderModal();
+        showToast("Presupuesto actualizado correctamente");
+    } catch (e) {
+        console.error("Error al actualizar presupuesto", e);
+        alert("Error al guardar el presupuesto.");
+    }
+}
+
 
 async function submitOrder() {
     const form = document.getElementById('new-order-form');
@@ -242,10 +493,31 @@ async function submitOrder() {
     }
 }
 
-// Close modal when clicking outside
+// Close modals when clicking outside
 modalOverlay.addEventListener('click', (e) => {
     if (e.target === modalOverlay) closeOrderModal();
 });
+
+const editModalOverlay = document.getElementById('edit-order-modal');
+if (editModalOverlay) {
+    editModalOverlay.addEventListener('click', (e) => {
+        if (e.target === editModalOverlay) closeEditOrderModal();
+    });
+}
+
+const viewModalOverlay = document.getElementById('view-order-modal');
+if (viewModalOverlay) {
+    viewModalOverlay.addEventListener('click', (e) => {
+        if (e.target === viewModalOverlay) closeViewOrderModal();
+    });
+}
+
+const completeModalOverlay = document.getElementById('complete-order-modal');
+if (completeModalOverlay) {
+    completeModalOverlay.addEventListener('click', (e) => {
+        if (e.target === completeModalOverlay) closeCompleteOrderModal();
+    });
+}
 
 
 // --- State Cycle ---
@@ -256,6 +528,12 @@ async function cycleStatus(orderId) {
     const currIdx = orderStatuses.indexOf(order.status);
     const nextIdx = (currIdx + 1) % orderStatuses.length;
     const newStatus = orderStatuses[nextIdx];
+
+    // Si va a "listo", abrir modal de costos antes de actualizar
+    if (newStatus === 'listo') {
+        openCompleteOrderModal(orderId);
+        return;
+    }
 
     // Optimistic UI Update
     order.status = newStatus;
@@ -322,7 +600,8 @@ function generateActionButtons(orderId, isDashboard) {
         `;
     }
     return `
-        <button class="action-btn" title="Avanzar estado" onclick="cycleStatus('${orderId}')"><i data-lucide="fast-forward" style="width:18px"></i></button>
+        <button class="action-btn" title="Ver detalles" onclick="openViewOrderModal('${orderId}')"><i data-lucide="info" style="width:18px"></i></button>
+        <button class="action-btn" title="Editar" onclick="openEditOrderModal('${orderId}')"><i data-lucide="edit-2" style="width:18px"></i></button>
         <button class="action-btn" title="Eliminar" style="color:var(--danger-color)" onclick="deleteOrder('${orderId}')"><i data-lucide="trash-2" style="width:18px"></i></button>
     `;
 }
@@ -383,37 +662,75 @@ function renderAllOrders() {
     });
 
     filtered.forEach(order => {
+        // Formato de fecha DD/MM/AA y días restantes
+        let formattedDate = order.date;
+        let daysRemainingText = '';
+        try {
+            const dateObj = new Date(order.date);
+            if (!isNaN(dateObj.getTime())) {
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const year = String(dateObj.getFullYear()).slice(-2);
+                formattedDate = `${day}/${month}/${year}`;
+
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const diffMs = dateObj.setHours(0,0,0,0) - today.getTime();
+                const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+                if (diffDays > 0) {
+                    daysRemainingText = `${diffDays} días restantes`;
+                } else if (diffDays === 0) {
+                    daysRemainingText = 'Hoy vence';
+                } else {
+                    daysRemainingText = `${Math.abs(diffDays)} días vencidos`;
+                }
+            }
+        } catch (e) {
+            // deja valores originales si fecha inválida
+        }
+        order.formattedDate = formattedDate;
+        order.daysRemainingText = daysRemainingText;
+
         const sc = statusConfig[order.status];
         let wppClass = order.wppStatus === 'notified' ? 'secondary-color' : 'text-secondary';
         let wppIcon = order.wppStatus === 'notified' ? 'check-check' : 'send';
         let wppText = order.wppStatus === 'notified' ? 'Enviado' : 'Avisar';
 
+        // Limpia la descripción para no mostrar escandallo aquí
+        let serviceText = order.service || '';
+        if (serviceText.includes('---\nEscandallo')) {
+            serviceText = serviceText.split('---\nEscandallo')[0].trim();
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="font-weight:600; color:var(--primary-color)">${order.id}</td>
-            <td>
+            <td data-label="# Orden" style="font-weight:600; color:var(--primary-color)">${order.id}</td>
+            <td data-label="Cliente">
                 <div class="client-info">
                     <span class="client-name">${order.client}</span>
                     <span class="client-contact">${order.contact}</span>
                 </div>
             </td>
-            <td>
+            <td data-label="Objeto / Trabajo">
                 <div style="font-weight:500">${order.object}</div>
-                <div style="font-size:0.8rem; color:var(--text-secondary)">${order.service}</div>
+                <div style="font-size:0.8rem; color:var(--text-secondary)">${serviceText}</div>
             </td>
-            <td>${order.date}</td>
-            <td style="font-weight:500; color:var(--text-main)">$${Number(order.budget || 0).toLocaleString('es-AR')}</td>
-            <td><span class="status ${sc.class}" style="cursor:pointer" onclick="cycleStatus('${order.id}')" title="Clic para avanzar">${sc.label}</span></td>
-            <td style="font-size:0.85rem; font-weight:500;">
+            <td data-label="Fecha Est.">
+                <div style="font-weight:500;">${order.formattedDate || order.date}</div>
+                <div style="font-size:0.75rem; color: var(--text-secondary); margin-top:0.2rem;">${order.daysRemainingText || ''}</div>
+            </td>
+            <td data-label="Estado"><span class="status ${sc.class}" style="cursor:pointer" onclick="cycleStatus('${order.id}')" title="Clic para avanzar">${sc.label}</span></td>
+            <td data-label="Notif. Whatsapp" style="font-size:0.85rem; font-weight:500;">
                 <button class="btn-secondary" style="padding:0.3rem 0.6rem; display:flex; align-items:center; gap:0.4rem; font-size:0.8rem" onclick="openWhatsApp('${order.id}')">
                     <i data-lucide="${wppIcon}" style="color:var(--${wppClass}); width:16px"></i> 
                     ${wppText}
                 </button>
             </td>
-            <td><div class="actions-cell">${generateActionButtons(order.id, false)}</div></td>
+            <td class="actions-col" data-label="Acciones"><div class="actions-cell">${generateActionButtons(order.id, false)}</div></td>
         `;
         tb.appendChild(tr);
     });
+    lucide.createIcons(); // Refresh icons after rendering
 }
 
 function renderCustomers() {
@@ -843,6 +1160,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // Complete order modal cost calculator inputs listeners
+    const completeHourlyRateField = document.getElementById('complete-hourly-rate');
+    const completeLaborHoursField = document.getElementById('complete-labor-hours');
+    const completeMaterialCostField = document.getElementById('complete-material-cost');
+
+    if (completeHourlyRateField) completeHourlyRateField.addEventListener('input', saveCompleteCostSettings);
+    if (completeLaborHoursField) completeLaborHoursField.addEventListener('input', calculateCompleteCost);
+    if (completeMaterialCostField) completeMaterialCostField.addEventListener('input', calculateCompleteCost);
+
     // Configura actualización constante cada 10 segundos
     setInterval(pollData, 10000); 
 });
