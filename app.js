@@ -1,3 +1,400 @@
+// --- AUTHENTICATION SYSTEM ---
+
+let currentAuthUser = JSON.parse(localStorage.getItem('currentAuthUser') || 'null');
+
+// Toggle between login and signup modes
+function toggleAuthMode(mode) {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    
+    if (mode === 'signup') {
+        loginForm.style.display = 'none';
+        signupForm.style.display = 'flex';
+    } else {
+        loginForm.style.display = 'flex';
+        signupForm.style.display = 'none';
+    }
+    
+    // Clear error messages
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-error').textContent = '';
+}
+
+// Handle login
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errorDiv = document.getElementById('login-error');
+    const loadingDiv = document.getElementById('login-loading');
+    
+    if (!email || !password) {
+        errorDiv.textContent = 'Por favor completa todos los campos';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    loadingDiv.style.display = 'block';
+    errorDiv.style.display = 'none';
+    
+    try {
+        const { data, error } = await dbClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            throw new Error(error.message);
+        }
+        
+        if (data.user) {
+            // Guardar sesión
+            currentAuthUser = {
+                id: data.user.id,
+                email: data.user.email,
+                token: data.session.access_token
+            };
+            
+            // Obtener información del usuario desde tabla 'users'
+            const { data: userData, error: userError } = await dbClient
+                .from('users')
+                .select('*')
+                .eq('auth_id', data.user.id)
+                .single();
+            
+            if (userError) {
+                console.error('Error al obtener datos del usuario:', userError);
+                console.warn('Continuando con datos mínimos del usuario');
+            }
+            
+            if (userData) {
+                currentAuthUser.name = userData.full_name || userData.email.split('@')[0];
+                currentAuthUser.company = userData.company;
+                currentAuthUser.role = userData.role || 'user';
+                currentAuthUser.tenant_id = userData.tenant_id;
+                console.log('Usuario cargado correctamente:', currentAuthUser);
+            } else {
+                console.warn('No se encontró datos de usuario en tabla users');
+                // Asignar rol por defecto para permitir al menos acceso básico
+                currentAuthUser.role = 'user';
+            }
+            
+            localStorage.setItem('currentAuthUser', JSON.stringify(currentAuthUser));
+            localStorage.setItem('authToken', data.session.access_token);
+            
+            // Ocultar login, mostrar app
+            showApp();
+            loadingDiv.style.display = 'none';
+            
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        errorDiv.textContent = `Error: ${error.message || 'No se pudo iniciar sesión'}`;
+        errorDiv.style.display = 'block';
+        loadingDiv.style.display = 'none';
+    }
+}
+
+// Handle signup
+async function handleSignup(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const company = document.getElementById('signup-company').value.trim();
+    const errorDiv = document.getElementById('login-error');
+    const loadingDiv = document.getElementById('login-loading');
+    
+    if (!email || !password || !company) {
+        errorDiv.textContent = 'Por favor completa todos los campos';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (password.length < 6) {
+        errorDiv.textContent = 'La contraseña debe tener al menos 6 caracteres';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    loadingDiv.style.display = 'block';
+    errorDiv.style.display = 'none';
+    
+    try {
+        const { data, error } = await dbClient.auth.signUp({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            throw new Error(error.message);
+        }
+        
+        if (data.user) {
+            // Crear entrada en tabla 'users'
+            const { error: insertError } = await dbClient
+                .from('users')
+                .insert([{
+                    auth_id: data.user.id,
+                    email: email,
+                    full_name: company,
+                    company: company,
+                    role: 'owner',
+                    tenant_id: `tenant-${Date.now()}`,
+                    created_at: new Date().toISOString()
+                }]);
+            
+            if (insertError) {
+                throw new Error('Error al crear el perfil: ' + insertError.message);
+            }
+            
+            // Login automático
+            currentAuthUser = {
+                id: data.user.id,
+                email: email,
+                token: data.session?.access_token,
+                name: company,
+                company: company,
+                role: 'owner',
+                tenant_id: `tenant-${Date.now()}`
+            };
+            
+            localStorage.setItem('currentAuthUser', JSON.stringify(currentAuthUser));
+            if (data.session?.access_token) {
+                localStorage.setItem('authToken', data.session.access_token);
+            }
+            
+            errorDiv.textContent = '✅ Cuenta creada exitosamente! Redirigiendo...';
+            errorDiv.style.color = '#10B981';
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                showApp();
+                loadingDiv.style.display = 'none';
+            }, 1500);
+        }
+    } catch (error) {
+        console.error('Signup error:', error);
+        errorDiv.textContent = `Error: ${error.message || 'No se pudo crear la cuenta'}`;
+        errorDiv.style.display = 'block';
+        loadingDiv.style.display = 'none';
+    }
+}
+
+// Show app (hide login)
+function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    
+    // Inicializar datos
+    initData();
+    
+    // Actualizar UI con datos del usuario
+    updateUserUI();
+}
+
+// Update user UI
+function updateUserUI() {
+    if (!currentAuthUser) return;
+    
+    const avatar = document.getElementById('user-avatar');
+    const nameDisplay = document.getElementById('user-name-display');
+    
+    if (avatar && nameDisplay) {
+        const initials = (currentAuthUser.name || 'U')
+            .split(' ')
+            .map(w => w[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+        
+        avatar.textContent = initials;
+        nameDisplay.textContent = currentAuthUser.name || 'Usuario';
+    }
+    
+    // Actualizar modal del perfil
+    const profileAvatar = document.getElementById('profile-avatar');
+    const profileName = document.getElementById('profile-name');
+    const profileEmail = document.getElementById('profile-email');
+    const profileRole = document.getElementById('profile-role');
+    const profileCompany = document.getElementById('profile-company');
+    
+    if (profileAvatar) {
+        const initials = (currentAuthUser.name || 'U')
+            .split(' ')
+            .map(w => w[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+        profileAvatar.textContent = initials;
+    }
+    
+    if (profileName) profileName.textContent = currentAuthUser.name || 'Usuario';
+    if (profileEmail) profileEmail.textContent = currentAuthUser.email || 'email@example.com';
+    if (profileRole) {
+        const roleName = currentAuthUser.role === 'owner' ? 'Propietario' : 
+                         currentAuthUser.role === 'admin' ? 'Administrador' :
+                         currentAuthUser.role === 'manager' ? 'Gerente' : 'Usuario';
+        profileRole.textContent = roleName;
+    }
+    if (profileCompany) profileCompany.textContent = currentAuthUser.company || 'Empresa';
+    
+    // Mostrar botón de crear usuario si es admin o owner
+    const createUserBtn = document.getElementById('create-user-btn');
+    if (createUserBtn && (currentAuthUser.role === 'owner' || currentAuthUser.role === 'admin')) {
+        createUserBtn.style.display = 'block';
+    }
+}
+
+// Open login modal (for logout or user change)
+function openLoginModal() {
+    if (!currentAuthUser) return;
+    
+    // Actualizar perfil antes de abrir
+    updateUserUI();
+    
+    const modal = document.getElementById('user-profile-modal');
+    if (modal) {
+        modal.classList.add('open');
+        console.log('[App] Modal abierto. Rol del usuario:', currentAuthUser.role);
+    } else {
+        console.error('[App] Modal user-profile-modal no encontrado');
+    }
+}
+
+// Logout
+async function handleLogout() {
+    try {
+        await dbClient.auth.signOut();
+        
+        // Limpiar sesión local
+        currentAuthUser = null;
+        localStorage.removeItem('currentAuthUser');
+        localStorage.removeItem('authToken');
+        
+        // Limpiar datos
+        globalOrders = [];
+        globalUsers = [];
+        globalCustomers = [];
+        
+        // Mostrar login
+        document.getElementById('app-container').style.display = 'none';
+        document.getElementById('login-screen').style.display = 'flex';
+        
+        // Resetear forms
+        document.getElementById('login-form').reset();
+        document.getElementById('signup-form').reset();
+        toggleAuthMode('login');
+        
+        showToast('✅ Sesión cerrada', 'success');
+    } catch (error) {
+        console.error('Logout error:', error);
+        showToast('Error al cerrar sesión', 'error');
+    }
+}
+
+// Check authentication on page load
+function checkAuth() {
+    if (currentAuthUser && currentAuthUser.id) {
+        showApp();
+    } else {
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('app-container').style.display = 'none';
+    }
+}
+
+// --- ADMIN PANEL: CREATE USERS ---
+
+async function openCreateUserModal() {
+    // Verificar si es admin
+    if (currentAuthUser.role !== 'owner' && currentAuthUser.role !== 'admin') {
+        showToast('No tienes permisos para crear usuarios', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('create-user-modal');
+    if (modal) {
+        modal.classList.add('open');
+    }
+}
+
+async function createNewUser(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('new-user-email').value.trim();
+    const fullName = document.getElementById('new-user-name').value.trim();
+    const company = document.getElementById('new-user-company').value.trim();
+    const password = document.getElementById('new-user-password').value;
+    const role = document.getElementById('new-user-role').value;
+    
+    if (!email || !fullName || !password || !company) {
+        showToast('Por favor completa todos los campos', 'error');
+        return;
+    }
+    
+    try {
+        showToast('Creando usuario...', 'info');
+        
+        // Crear usuario en Auth (esto genera un usuario confirmado)
+        const { data: authData, error: authError } = await dbClient.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    full_name: fullName,
+                    company: company,
+                    role: role
+                }
+            }
+        });
+        
+        if (authError) {
+            throw new Error('Error en autenticación: ' + authError.message);
+        }
+        
+        if (!authData.user) {
+            throw new Error('No se pudo crear el usuario');
+        }
+        
+        // Crear registro en tabla 'users'
+        const { error: insertError } = await dbClient
+            .from('users')
+            .insert([{
+                auth_id: authData.user.id,
+                email: email,
+                full_name: fullName,
+                company: company,
+                role: role,
+                tenant_id: currentAuthUser.tenant_id,
+                created_at: new Date().toISOString(),
+                created_by: currentAuthUser.id
+            }]);
+        
+        if (insertError) {
+            throw new Error('Error al crear registro: ' + insertError.message);
+        }
+        
+        // Limpiar formulario
+        document.getElementById('create-user-form').reset();
+        
+        // Cerrar modal
+        const modal = document.getElementById('create-user-modal');
+        if (modal) {
+            modal.classList.remove('open');
+        }
+        
+        showToast(`✅ Usuario ${email} creado exitosamente`, 'success');
+        
+        // Recargar usuarios
+        await loadUsers();
+        
+    } catch (error) {
+        console.error('Create user error:', error);
+        showToast(`Error: ${error.message}`, 'error');
+    }
+}
+
 // Initialize Lucide Icons
 lucide.createIcons();
 
@@ -373,6 +770,9 @@ window.addEventListener('offline', () => {
 
 // Inicializar estado online
 document.addEventListener('DOMContentLoaded', () => {
+    // Verificar autenticación primero
+    checkAuth();
+    
     updateOnlineStatus();
     
     // Instalar prompt para PWA (cuando esté disponible)
@@ -1678,27 +2078,6 @@ function toggleDarkMode() {
 }
 
 // --- Auth UI ---
-function updateUserUI() {
-    const avatar = document.getElementById('user-avatar');
-    const nameDisplay = document.getElementById('user-name-display');
-    const greetingTitle = document.getElementById('greeting-title');
-
-    let displayUser = currentUser ? currentUser : 'Desconocido';
-
-    if (avatar) avatar.textContent = currentUser ? currentUser.charAt(0).toUpperCase() : '?';
-    if (nameDisplay) nameDisplay.textContent = displayUser;
-
-    if (greetingTitle) {
-        greetingTitle.innerHTML = `Hola ${displayUser}, <span style="color:var(--text-secondary);font-weight:400">bienvenido al taller</span>`;
-    }
-}
-
-function openLoginModal() {
-    document.getElementById('form-username').value = currentUser;
-    document.getElementById('login-modal').classList.add('open');
-    document.getElementById('login-close-btn').style.display = currentUser ? 'block' : 'none';
-}
-
 function closeLoginModal() {
     if(!currentUser) {
         alert("Debes ingresar un nombre para continuar.");

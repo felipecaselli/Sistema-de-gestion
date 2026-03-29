@@ -68,6 +68,7 @@ p { color: var(--text-secondary); line-height: 1.5; }
     display: flex;
     width: 100vw;
     height: 100vh;
+    flex-direction: row; /* Default: horizontal para PCs */
 }
 
 /* Sidebar */
@@ -469,13 +470,17 @@ th {
     box-shadow: -8px 0 10px -8px rgba(0,0,0,0.1);
 }
 
-@media (max-width: 980px) {
+/* RESPONSIVE DESIGN */
+
+/* MÓVILES Y TABLETS (≤768px) - Vertical Layout */
+@media (max-width: 768px) {
     .app-container {
-        flex-direction: column;
+        flex-direction: column !important;
     }
 
     .sidebar {
-        position: relative;
+        position: sticky;
+        top: 0;
         width: 100%;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
@@ -484,22 +489,53 @@ th {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
+        z-index: 100;
+    }
+
+    .sidebar-logo {
+        margin-bottom: 0;
+        flex-shrink: 0;
     }
 
     .nav-menu {
         flex-direction: row;
-        gap: 0.4rem;
+        gap: 0.3rem;
         overflow-x: auto;
         width: auto;
+        flex: 1;
+        padding: 0 0.5rem;
     }
 
     .nav-item {
-        padding: 0.4rem 0.6rem;
-        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .nav-item span {
+        display: inline;
+    }
+
+    .sidebar-collapsed .nav-item span {
+        display: none;
     }
 
     .main-content {
+        flex: 1;
         height: auto;
+        overflow-y: auto;
+        border-left: none;
+        flex-direction: column;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .header-search {
+        width: 100%;
     }
 
     .table-container {
@@ -507,9 +543,83 @@ th {
     }
 
     table {
-        min-width: 760px;
+        min-width: 100%;
+    }
+
+    .modal-content {
+        max-width: 95vw;
     }
 }
+
+/* PC Y MONITORES (>768px) - Horizontal Layout */
+@media (min-width: 769px) {
+    .app-container {
+        flex-direction: row !important;
+    }
+
+    .sidebar {
+        position: relative;
+        width: var(--sidebar-width);
+        border-right: 1px solid var(--border-color);
+        border-bottom: none;
+        padding: 1.5rem 1rem;
+        height: 100vh;
+        overflow-y: auto;
+    }
+
+    .sidebar-collapsed .sidebar {
+        width: 72px;
+        padding: 0.8rem 0.2rem;
+    }
+
+    .nav-menu {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .nav-item {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        white-space: normal;
+    }
+
+    .nav-item span {
+        display: inline;
+    }
+
+    .sidebar-collapsed .nav-item span {
+        display: none;
+    }
+
+    .main-content {
+        flex: 1;
+        height: 100vh;
+        overflow: hidden;
+        flex-direction: column;
+        border-left: none;
+    }
+
+    .header {
+        flex-direction: row;
+        gap: 1rem;
+    }
+
+    .header-search {
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    .modal-content {
+        max-width: 650px;
+    }
+}
+
+/* CSS que antes estaba en @media (max-width: 980px) - ELIMINADO */
+/* El nuevo sistema arriba es más específico y funciona mejor */
 
 td {
     padding: 1rem 1.5rem;
@@ -836,5 +946,202 @@ textarea.form-control {
     background-color: var(--border-color);
     color: var(--text-secondary);
     border-left-color: var(--text-secondary);
+}
+
+/* LOGIN SCREEN - Responsive */
+.login-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+}
+
+.login-container {
+    background-color: var(--surface-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 420px;
+}
+
+/* MÓVILES */
+@media (max-width: 768px) {
+    .login-container {
+        padding: 1.5rem;
+        max-width: 95vw;
+    }
+
+    .login-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .login-header p {
+        font-size: 0.9rem;
+    }
+
+    .form-group input {
+        padding: 0.65rem 0.8rem;
+        font-size: 16px; /* Previene zoom automático en iOS */
+    }
+
+    .btn {
+        padding: 0.65rem 1.25rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* PC */
+@media (min-width: 769px) {
+    .login-container {
+        padding: 2.5rem;
+        max-width: 420px;
+    }
+
+    .login-header h1 {
+        font-size: 1.75rem;
+    }
+
+    .login-header p {
+        font-size: 0.95rem;
+    }
+
+    .form-group input {
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+    }
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-header svg {
+    display: block;
+    margin: 0 auto 1rem;
+    border-radius: var(--radius-md);
+}
+
+.login-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+#login-form,
+#signup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    background-color: var(--surface-color);
+    transition: var(--transition);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.form-group input::placeholder {
+    color: var(--text-secondary);
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+#login-error {
+    padding: 0.75rem 1rem;
+    background-color: var(--danger-light);
+    color: var(--danger-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.spinner {
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* INPUT STYLING */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--surface-color);
+}
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 480px) {
+    .login-container {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    
+    .login-header h1 {
+        font-size: 1.5rem;
+    }
 }
 

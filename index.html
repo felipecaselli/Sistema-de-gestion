@@ -24,7 +24,83 @@
 
 <body>
 
-    <div class="app-container">
+    <!-- LOGIN MODAL (Pantalla inicial) -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <svg viewBox="0 0 192 192" width="64" height="64">
+                    <rect fill="#4F46E5" width="192" height="192"/>
+                    <text x="96" y="120" font-size="80" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">CMB</text>
+                </svg>
+                <h1>CMB - Gestión de Órdenes</h1>
+                <p>Para talleres y artesanías</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" placeholder="tu@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; font-weight: 500;">
+                    Iniciar Sesión
+                </button>
+
+                <div style="text-align: center; margin-top: 1rem;">
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                        ¿No tienes cuenta? 
+                        <button type="button" onclick="toggleAuthMode('signup')" style="background: none; border: none; color: #4F46E5; cursor: pointer; font-weight: 600;">
+                            Registrarse
+                        </button>
+                    </p>
+                </div>
+            </form>
+
+            <!-- SIGNUP FORM (Hidden by default) -->
+            <form id="signup-form" onsubmit="handleSignup(event)" style="display: none;">
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" placeholder="tu@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="signup-password">Contraseña (mín. 6 caracteres)</label>
+                    <input type="password" id="signup-password" placeholder="••••••••" minlength="6" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="signup-company">Nombre de tu Taller/Empresa</label>
+                    <input type="text" id="signup-company" placeholder="Mi Taller" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; font-weight: 500;">
+                    Crear Cuenta
+                </button>
+
+                <div style="text-align: center; margin-top: 1rem;">
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                        ¿Ya tienes cuenta? 
+                        <button type="button" onclick="toggleAuthMode('login')" style="background: none; border: none; color: #4F46E5; cursor: pointer; font-weight: 600;">
+                            Iniciar Sesión
+                        </button>
+                    </p>
+                </div>
+            </form>
+
+            <div id="login-error" style="color: #EF4444; margin-top: 1rem; text-align: center; display: none;"></div>
+            <div id="login-loading" style="display: none; text-align: center;">
+                <div class="spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP MAIN (Hidden until logged in) -->
+    <div class="app-container" id="app-container" style="display: none;">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-logo">
@@ -679,6 +755,93 @@
 
     <!-- Opcional: Sonido y notificaciones web -->
     <div id="toast-container" style="position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px;"></div>
+
+    <!-- CREATE USER MODAL (Admin Only) -->
+    <div class="modal-overlay" id="create-user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Crear Nuevo Usuario</h2>
+                <button type="button" class="icon-btn" onclick="document.getElementById('create-user-modal').classList.remove('open')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="create-user-form" onsubmit="createNewUser(event)" class="modal-body">
+                <div class="form-group">
+                    <label for="new-user-email">Email</label>
+                    <input type="email" id="new-user-email" class="form-control" placeholder="usuario@empresa.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="new-user-name">Nombre Completo</label>
+                    <input type="text" id="new-user-name" class="form-control" placeholder="Juan Pérez" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="new-user-company">Empresa/Taller</label>
+                    <input type="text" id="new-user-company" class="form-control" placeholder="Mi Taller" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="new-user-password">Contraseña Temporal</label>
+                    <input type="password" id="new-user-password" class="form-control" placeholder="••••••••" minlength="6" required>
+                    <small style="color: var(--text-secondary); margin-top: 0.25rem;">El usuario puede cambiarla después de loguearse</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="new-user-role">Rol</label>
+                    <select id="new-user-role" class="form-control">
+                        <option value="user">Usuario</option>
+                        <option value="manager">Gerente</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('create-user-modal').classList.remove('open')">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('create-user-form').dispatchEvent(new Event('submit'))">
+                    Crear Usuario
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER PROFILE MODAL -->
+    <div class="modal-overlay" id="user-profile-modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Tu Perfil</h2>
+                <button type="button" class="icon-btn" onclick="document.getElementById('user-profile-modal').classList.remove('open')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="avatar" id="profile-avatar" style="width: 60px; height: 60px; font-size: 1.5rem;">?</div>
+                    <div>
+                        <div id="profile-name" style="font-weight: 600; font-size: 1.1rem;">Usuario</div>
+                        <div id="profile-email" style="color: var(--text-secondary); font-size: 0.9rem;">email@example.com</div>
+                        <div id="profile-role" style="color: var(--primary-color); font-weight: 500; font-size: 0.85rem;">Usuario</div>
+                    </div>
+                </div>
+
+                <div style="padding: 1rem; background-color: var(--bg-color); border-radius: var(--radius-sm); margin-bottom: 1rem;">
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Empresa</div>
+                    <div id="profile-company" style="font-weight: 500;">Empresa</div>
+                </div>
+
+                <button type="button" class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="handleLogout()">
+                    <i data-lucide="log-out" style="width: 18px; height: 18px;"></i> Cerrar Sesión
+                </button>
+
+                <!-- Botón para crear usuario (solo para admins) -->
+                <button type="button" id="create-user-btn" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 0.75rem; display: none;" onclick="openCreateUserModal()">
+                    <i data-lucide="user-plus" style="width: 18px; height: 18px;"></i> Crear Usuario
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
     
