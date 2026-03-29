@@ -297,7 +297,7 @@ async function submitCompleteOrder() {
     const margin = budget - totalCost;
     const marginPct = budget > 0 ? (margin / budget) * 100 : 0;
 
-    const costText = `\n\n---\nEscandallo Final:\n- Costo hora: $${rate.toFixed(2)}\n- Horas trabajadas: ${hours.toFixed(2)}\n- Costo mano de obra: $${laborCost.toFixed(2)}\n- Costo insumos: $${material.toFixed(2)}\n- Costo total: $${totalCost.toFixed(2)}\n- Margen: $${margin.toFixed(2)} (${marginPct.toFixed(1)}%)\n---`;
+    const costText = `\n\n- Costo hora: $${rate.toFixed(2)}\n- Horas trabajadas: ${hours.toFixed(2)}\n- Costo mano de obra: $${laborCost.toFixed(2)}\n- Costo insumos: $${material.toFixed(2)}\n- Costo total: $${totalCost.toFixed(2)}\n- Margen: $${margin.toFixed(2)} (${marginPct.toFixed(1)}%)`;
 
     const baseServiceDetails = order.service || '';
     const finalServiceDetails = `${baseServiceDetails}${costText}`;
@@ -410,14 +410,59 @@ function openViewOrderModal(orderId) {
     }
     document.getElementById('view-service-desc').textContent = serviceText;
 
-    // Extraer escandallo si existe
+    // Extraer proyección de costo si existe (sin separadores ni título)
     let costText = '';
-    if (order.service && order.service.includes('---\nEscandallo')) {
-        costText = '---\nEscandallo' + order.service.split('---\nEscandallo')[1];
-    } else {
-        costText = 'Sin cálculo de costo aún.';
+    if (order.service) {
+        if (order.service.includes('---\nEscandallo')) {
+            costText = order.service.split('---\nEscandallo')[1];
+        } else if (order.service.includes('- Costo hora:')) {
+            // Para casos actuales con formato embebido sin marcador
+            costText = order.service.split('- Costo hora:').slice(1).join('- Costo hora:');
+            costText = `- Costo hora:${costText}`;
+        }
     }
-    document.getElementById('view-cost-text').textContent = costText;
+
+    costText = (costText || 'Sin cálculo de costo aún.').trim();
+    costText = costText.replace(/^Final:\s*/i, '');
+
+    const cleanLines = costText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line && line !== '---' && line.toLowerCase() !== 'escandallo');
+
+    const viewCostTextEl = document.getElementById('view-cost-text');
+    if (!viewCostTextEl) return;
+
+    if (cleanLines.length === 0) {
+        viewCostTextEl.textContent = 'Sin cálculo de costo aún.';
+    } else {
+        const renderedLines = [];
+        let warningNeeded = false;
+
+        cleanLines.forEach(line => {
+            let cleanLine = line;
+            if (cleanLine.startsWith('- ')) {
+                cleanLine = cleanLine.substring(2);
+            }
+
+            if (/^margen\s*:/i.test(cleanLine)) {
+                const valueMatch = cleanLine.match(/([-+]?[0-9]*\.?[0-9]+)/);
+                if (valueMatch && parseFloat(valueMatch[1]) < 0) {
+                    warningNeeded = true;
+                }
+                cleanLine = `<strong>${cleanLine}</strong>`;
+            }
+
+            renderedLines.push(cleanLine);
+        });
+
+        viewCostTextEl.innerHTML = renderedLines.join('<br>');
+
+        if (warningNeeded) {
+            viewCostTextEl.innerHTML += '<br><span style="color:#b45309; font-weight: 600;">⚠️ Cuidado: estás debajo del costo.</span>';
+        }
+    }
+
     document.getElementById('view-edit-budget').value = Number(order.budget || 0).toFixed(2);
 
     document.getElementById('view-order-modal').classList.add('open');
