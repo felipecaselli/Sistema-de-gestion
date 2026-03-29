@@ -7,19 +7,25 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Evitar conflicto con la variable global 'supabase' de Supabase CDN:
 const dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 const DEFAULT_TENANT_ID = 'taller-demo';
-const orderStatuses = ['recibido', 'proceso', 'materiales', 'listo', 'entregado'];
+const orderStatuses = ['recibido', 'cotizado', 'presupuestado', 'proceso', 'materiales', 'rechazado', 'listo', 'entregado'];
 
 const statusConfig = {
     recibido: { label: "Recibido", class: "status-received" },
+    cotizado: { label: "Cotizado", class: "status-quoted" },
+    presupuestado: { label: "Presupuestado", class: "status-budgeted" },
     proceso: { label: "En Proceso", class: "status-process" },
     materiales: { label: "Espera Mat.", class: "status-materials" },
+    rechazado: { label: "Rechazado", class: "status-rejected" },
     listo: { label: "Listo p/ Entrega", class: "status-ready" },
     entregado: { label: "Entregado", class: "status-delivered" }
 };
 
 let globalOrders = [];
+let globalUsers = [];
+let globalCustomers = [];
 let appNotifications = [];
 let currentUser = localStorage.getItem('currentUser') || '';
+let currentUserId = localStorage.getItem('currentUserId') || null;
 let notifiedDeadlines = new Set();
 
 // --- Agenda State ---
@@ -30,8 +36,65 @@ let statusChartInstance = null;
 let revenueChartInstance = null;
 let topClientsChartInstance = null;
 
+// --- Load Users ---
+async function loadUsers() {
+    try {
+        const { data, error } = await dbClient
+            .from('users')
+            .select('*')
+            .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        if (!error && data) {
+            globalUsers = data;
+        }
+    } catch (err) {
+        console.error("Error loading users:", err);
+    }
+}
+
+// --- Load Customers ---
+async function loadCustomers() {
+    try {
+        const { data, error } = await dbClient
+            .from('customers')
+            .select('*')
+            .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        if (!error && data) {
+            globalCustomers = data;
+        }
+    } catch (err) {
+        console.error("Error loading customers:", err);
+    }
+}
+
+// --- Audit Log Function ---
+async function logAudit(tableName, recordId, action, oldValues, newValues) {
+    try {
+        await dbClient
+            .from('audit_log')
+            .insert([{
+                tenant_id: DEFAULT_TENANT_ID,
+                table_name: tableName,
+                record_id: recordId,
+                action: action,
+                changed_by: currentUserId || null,
+                old_values: oldValues || null,
+                new_values: newValues || null
+            }]);
+    } catch (err) {
+        console.error("Error logging audit:", err);
+    }
+}
+
 async function initData() {
     try {
+        // Cargar usuarios
+        await loadUsers();
+        
+        // Cargar clientes
+        await loadCustomers();
+        
         const { data, error } = await dbClient
             .from('orders')
             .select('*')
@@ -39,19 +102,28 @@ async function initData() {
             .order('created_at', { ascending: false });
 
         if (!error && data) {
-            globalOrders = data.map(o => ({
-                id: `OT-${o.id.toString().substring(0,8)}`,
-                dbId: o.id,
-                client: o.client_name,
-                contact: o.contact_phone,
-                email: o.email || '',
-                object: o.object_name,
-                service: o.service_details,
-                budget: o.budget || 0,
-                date: o.estimated_date || o.created_at.split('T')[0],
-                status: o.status,
-                wppStatus: o.wpp_status
-            }));
+            globalOrders = data.map(o => {
+                const assignedUser = globalUsers.find(u => u.id === o.assigned_user_id);
+                const customer = globalCustomers.find(c => c.id === o.customer_id);
+                
+                return {
+                    id: `OT-${o.id.toString().substring(0,8)}`,
+                    dbId: o.id,
+                    client: o.client_name,
+                    contact: o.contact_phone,
+                    email: o.email || '',
+                    object: o.object_name,
+                    service: o.service_details,
+                    budget: o.budget || 0,
+                    date: o.estimated_date || o.created_at.split('T')[0],
+                    status: o.status,
+                    wppStatus: o.wpp_status,
+                    assignedUserId: o.assigned_user_id,
+                    assignedUser: assignedUser ? assignedUser.name : 'Sin asignar',
+                    customerId: o.customer_id,
+                    customerData: customer
+                };
+            });
         }
     } catch (err) {
         console.error("SDK Error:", err);
@@ -62,6 +134,10 @@ async function initData() {
 // Auto-Polling Realtime App Sync via Supabase
 async function pollData() {
     try {
+        // Cargar usuarios y clientes
+        await loadUsers();
+        await loadCustomers();
+        
         const { data, error } = await dbClient
             .from('orders')
             .select('*')
@@ -69,19 +145,28 @@ async function pollData() {
             .order('created_at', { ascending: false });
 
         if (!error && data) {
-            const newOrders = data.map(o => ({
-                id: `OT-${o.id.toString().substring(0,8)}`,
-                dbId: o.id,
-                client: o.client_name,
-                contact: o.contact_phone,
-                email: o.email || '',
-                object: o.object_name,
-                service: o.service_details,
-                budget: o.budget || 0,
-                date: o.estimated_date || o.created_at.split('T')[0],
-                status: o.status,
-                wppStatus: o.wpp_status
-            }));
+            const newOrders = data.map(o => {
+                const assignedUser = globalUsers.find(u => u.id === o.assigned_user_id);
+                const customer = globalCustomers.find(c => c.id === o.customer_id);
+                
+                return {
+                    id: `OT-${o.id.toString().substring(0,8)}`,
+                    dbId: o.id,
+                    client: o.client_name,
+                    contact: o.contact_phone,
+                    email: o.email || '',
+                    object: o.object_name,
+                    service: o.service_details,
+                    budget: o.budget || 0,
+                    date: o.estimated_date || o.created_at.split('T')[0],
+                    status: o.status,
+                    wppStatus: o.wpp_status,
+                    assignedUserId: o.assigned_user_id,
+                    assignedUser: assignedUser ? assignedUser.name : 'Sin asignar',
+                    customerId: o.customer_id,
+                    customerData: customer
+                };
+            });
             
             // Si hay alguna modificación respecto a lo que tenemos en pantalla, re-renderizamos
             if (JSON.stringify(globalOrders) !== JSON.stringify(newOrders)) {
@@ -112,7 +197,7 @@ function clearData() {
     alert("Los datos ahora están en la nube (PostgreSQL/Supabase) y no pueden ser borrados con botón local.");
 }
 
-function showToast(message) {
+function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
@@ -127,7 +212,18 @@ function showToast(message) {
     }
 
     const toast = document.createElement('div');
-    toast.style.background = 'var(--primary-color, #4F46E5)';
+    
+    // Colores según tipo
+    const colorMap = {
+        success: { bg: '#10B981', icon: 'check-circle' },
+        error: { bg: '#EF4444', icon: 'alert-circle' },
+        warning: { bg: '#F59E0B', icon: 'alert-triangle' },
+        info: { bg: '#3B82F6', icon: 'info' }
+    };
+    
+    const colors = colorMap[type] || colorMap.success;
+    
+    toast.style.background = colors.bg;
     toast.style.color = '#fff';
     toast.style.padding = '12px 20px';
     toast.style.borderRadius = '8px';
@@ -138,7 +234,7 @@ function showToast(message) {
     toast.style.fontWeight = '500';
     toast.style.fontSize = '0.95rem';
     toast.style.animation = 'slideInUp 0.3s ease-out forwards';
-    toast.innerHTML = `<i data-lucide="bell" style="width:20px;height:20px;"></i> ${message}`;
+    toast.innerHTML = `<i data-lucide="${colors.icon}" style="width:20px;height:20px;"></i> ${message}`;
     
     container.appendChild(toast);
     lucide.createIcons();
@@ -146,10 +242,10 @@ function showToast(message) {
     // Notificación en el sistema operativo
     if ('Notification' in window) {
         if (Notification.permission === 'granted') {
-            new Notification('Aviso Taller', { body: message });
+            new Notification('CMB - Gestión de Órdenes', { body: message });
         } else if (Notification.permission !== 'denied') {
             Notification.requestPermission().then(p => {
-                if (p === 'granted') new Notification('Aviso Taller', { body: message });
+                if (p === 'granted') new Notification('CMB - Gestión de Órdenes', { body: message });
             });
         }
     }
@@ -165,6 +261,148 @@ function showToast(message) {
 if ('Notification' in window && Notification.permission !== 'denied') {
     document.addEventListener('click', () => Notification.requestPermission(), {once: true});
 }
+
+// --- PWA & OFFLINE FUNCTIONS ---
+
+// Estado de conectividad
+let isOnline = navigator.onLine;
+
+// Guardar en cola offline (para requests POST/PUT que fallaron)
+function queueOfflineRequest(method, url, body) {
+    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    queue.push({
+        method,
+        url,
+        body,
+        timestamp: Date.now()
+    });
+    localStorage.setItem('offlineQueue', JSON.stringify(queue));
+    console.log('[App] Request queued for offline sync:', url);
+}
+
+// Obtener datos del localStorage (fallback si offline)
+function getCachedOrders() {
+    const cached = localStorage.getItem('cachedOrders');
+    return cached ? JSON.parse(cached) : null;
+}
+
+// Guardar órdenes en localStorage para acceso offline
+function cacheOrders() {
+    localStorage.setItem('cachedOrders', JSON.stringify(globalOrders));
+    localStorage.setItem('cacheTimestamp', Date.now());
+}
+
+// Actualizar UI según estado online/offline
+function updateOnlineStatus() {
+    const statusIndicator = document.querySelector('[data-online-status]');
+    if (!statusIndicator && isOnline) {
+        // No mostrar indicador si está online
+        return;
+    }
+    
+    if (!isOnline) {
+        // Mostrar algún indicador de offline (ej: borde rojo en header)
+        document.body.style.borderTopWidth = '3px';
+        document.body.style.borderTopColor = '#EF4444';
+        console.log('[App] UI Updated: Now showing offline mode');
+    } else {
+        document.body.style.borderTopWidth = '0px';
+    }
+}
+
+// Detectar cambios online/offline
+window.addEventListener('online', () => {
+    isOnline = true;
+    updateOnlineStatus();
+    console.log('[App] Connected to internet');
+    showToast('📡 Conexión restaurada');
+    
+    // Intentar sincronizar requests pendientes
+    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    if (queue.length > 0) {
+        showToast(`Sincronizando ${queue.length} cambios pendientes...`);
+        if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'SYNC_OFFLINE_REQUESTS'
+            });
+        }
+        
+        // Registrar sync tag para background sync
+        if (navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then((registration) => {
+                if (registration.sync) {
+                    registration.sync.register('sync-offline-requests').catch((err) => {
+                        console.log('[App] Background Sync API not available:', err.message);
+                    });
+                }
+            });
+        }
+    }
+});
+
+// Listen for SYNC_COMPLETE messages from Service Worker
+navigator.serviceWorker.addEventListener('message', (event) => {
+    const { type, synced, failed, remaining } = event.data;
+    
+    if (type === 'SYNC_COMPLETE') {
+        console.log(`[App] Sync completed: ${synced} synced, ${failed} failed, ${remaining} remaining`);
+        
+        if (synced > 0) {
+            showToast(`✅ ${synced} cambio${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`);
+            // Recargar órdenes si algo se sincronizó exitosamente
+            setTimeout(() => pollData(), 500);
+        }
+        
+        if (failed > 0) {
+            showToast(`⚠️ ${failed} cambio${failed > 1 ? 's' : ''} no se pudo sincronizar. Reintentando...`, 'warning');
+        }
+    }
+    
+    if (type === 'REQUEST_QUEUED') {
+        console.log('[App] Request queued for offline sync:', event.data.url);
+    }
+});
+
+window.addEventListener('offline', () => {
+    isOnline = false;
+    updateOnlineStatus();
+    console.log('[App] Lost internet connection');
+    showToast('📡 Sin conexión - modo offline');
+    cacheOrders(); // Guardar datos en caché
+});
+
+// Inicializar estado online
+document.addEventListener('DOMContentLoaded', () => {
+    updateOnlineStatus();
+    
+    // Instalar prompt para PWA (cuando esté disponible)
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log('[App] beforeinstallprompt event fired, app is installable');
+        
+        // Mostrar botón "Instalar app" si se desea
+        const installBtn = document.getElementById('install-app-btn');
+        if (installBtn) {
+            installBtn.style.display = 'block';
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log('[App] User response:', outcome);
+                    deferredPrompt = null;
+                }
+            });
+        }
+    });
+    
+    // Detectar app instalada
+    window.addEventListener('appinstalled', () => {
+        console.log('[App] PWA was installed successfully');
+        showToast('✅ App instalada correctamente');
+    });
+});
 
 // --- DOM Elements ---
 const navItems = document.querySelectorAll('.nav-item');
@@ -208,9 +446,29 @@ function toggleSidebar() {
 }
 
 // --- Modal Handlers ---
+// --- Populate User Select in Forms ---
+function populateUserSelect() {
+    const userSelect = document.getElementById('form-assigned-user');
+    if (!userSelect) return;
+    
+    // Clear existing options except the first one
+    const firstOption = userSelect.options[0];
+    userSelect.innerHTML = '';
+    userSelect.appendChild(firstOption);
+    
+    // Add users
+    globalUsers.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = `${user.name} (${user.role})`;
+        userSelect.appendChild(option);
+    });
+}
+
 function openOrderModal() {
     document.getElementById('new-order-form').reset();
     document.getElementById('form-date').valueAsDate = new Date();
+    populateUserSelect();
     modalOverlay.classList.add('open');
 }
 
@@ -303,6 +561,9 @@ async function submitCompleteOrder() {
     const finalServiceDetails = `${baseServiceDetails}${costText}`;
 
     try {
+        const oldStatus = order.status;
+        const oldService = order.service;
+        
         await dbClient
             .from('orders')
             .update({
@@ -311,6 +572,12 @@ async function submitCompleteOrder() {
             })
             .eq('id', order.dbId)
             .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        // Log audit
+        await logAudit('orders', order.dbId, 'UPDATE', 
+            { status: oldStatus, service_details: oldService }, 
+            { status: 'listo', service_details: finalServiceDetails }
+        );
 
         await initData();
         closeCompleteOrderModal();
@@ -364,20 +631,35 @@ async function submitEditOrder() {
     const order = globalOrders.find(o => o.id === pendingEditOrderId);
     if (!order) return;
 
+    const updateData = {
+        client_name: document.getElementById('edit-form-client').value,
+        contact_phone: document.getElementById('edit-form-phone').value,
+        email: document.getElementById('edit-form-email').value,
+        object_name: document.getElementById('edit-form-object').value,
+        service_details: document.getElementById('edit-form-service').value,
+        budget: document.getElementById('edit-form-budget').value,
+        estimated_date: document.getElementById('edit-form-date').value
+    };
+
     try {
+        const oldData = {
+            client_name: order.client,
+            contact_phone: order.contact,
+            email: order.email,
+            object_name: order.object,
+            service_details: order.service,
+            budget: order.budget,
+            estimated_date: order.date
+        };
+
         await dbClient
             .from('orders')
-            .update({
-                client_name: document.getElementById('edit-form-client').value,
-                contact_phone: document.getElementById('edit-form-phone').value,
-                email: document.getElementById('edit-form-email').value,
-                object_name: document.getElementById('edit-form-object').value,
-                service_details: document.getElementById('edit-form-service').value,
-                budget: document.getElementById('edit-form-budget').value,
-                estimated_date: document.getElementById('edit-form-date').value
-            })
+            .update(updateData)
             .eq('id', order.dbId)
             .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        // Log audit
+        await logAudit('orders', order.dbId, 'UPDATE', oldData, updateData);
 
         await initData();
         closeEditOrderModal();
@@ -466,11 +748,52 @@ function openViewOrderModal(orderId) {
     document.getElementById('view-edit-budget').value = Number(order.budget || 0).toFixed(2);
 
     document.getElementById('view-order-modal').classList.add('open');
+    
+    // Cargar historial del cliente
+    loadOrderHistory();
 }
 
 function closeViewOrderModal() {
     document.getElementById('view-order-modal').classList.remove('open');
     pendingViewOrderId = null;
+}
+
+function loadOrderHistory() {
+    if (!pendingViewOrderId) return;
+
+    const order = globalOrders.find(o => o.id === pendingViewOrderId);
+    if (!order || !order.customerId) {
+        const historyEl = document.getElementById('view-customer-history');
+        historyEl.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.9rem;">Sin historial de cliente.</p>';
+        return;
+    }
+
+    // Obtener todas las órdenes del mismo cliente
+    const customerOrders = globalOrders.filter(o => o.customerId === order.customerId);
+    
+    if (!customerOrders || customerOrders.length === 0) {
+        const historyEl = document.getElementById('view-customer-history');
+        historyEl.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.9rem;">Sin órdenes anteriores.</p>';
+        return;
+    }
+
+    const historyEl = document.getElementById('view-customer-history');
+    let historyHtml = '';
+
+    customerOrders.forEach(o => {
+        const statusLabel = statusConfig[o.status]?.label || o.status;
+        const isCurrentOrder = o.id === order.id;
+        const style = isCurrentOrder ? 'background-color: var(--primary-light); font-weight: 600;' : '';
+        
+        historyHtml += `
+            <div style="padding: 0.75rem; border-bottom: 1px solid var(--border-color); cursor: pointer; ${style}" title="${isCurrentOrder ? 'Orden actual' : 'Haz clic para ver detalles'}">
+                <strong>${o.id}</strong> - ${o.object}
+                <br><small style="color: var(--text-secondary);">${o.date} • ${statusLabel} • $${Number(o.budget).toLocaleString('es-AR')}</small>
+            </div>
+        `;
+    });
+
+    historyEl.innerHTML = historyHtml;
 }
 
 async function updateOrderBudget() {
@@ -480,6 +803,7 @@ async function updateOrderBudget() {
     if (!order) return;
 
     const newBudget = Number(document.getElementById('view-edit-budget').value) || 0;
+    const oldBudget = order.budget;
 
     try {
         await dbClient
@@ -487,6 +811,9 @@ async function updateOrderBudget() {
             .update({ budget: newBudget })
             .eq('id', order.dbId)
             .eq('tenant_id', DEFAULT_TENANT_ID);
+
+        // Log audit
+        await logAudit('orders', order.dbId, 'UPDATE', { budget: oldBudget }, { budget: newBudget });
 
         await initData();
         closeViewOrderModal();
@@ -507,28 +834,78 @@ async function submitOrder() {
 
     const baseServiceDetails = document.getElementById('form-service').value;
     const finalServiceDetails = `[Añadido por: ${currentUser || 'Desconocido'}]\n${baseServiceDetails}`;
-
-    const payload = {
-        tenant_id: DEFAULT_TENANT_ID,
-        client_name: document.getElementById('form-client').value,
-        contact_phone: document.getElementById('form-phone').value,
-        email: document.getElementById('form-email').value,
-        object_name: document.getElementById('form-object').value,
-        service_details: finalServiceDetails,
-        budget: document.getElementById('form-budget').value,
-        estimated_date: document.getElementById('form-date').value,
-        status: "recibido",
-        wpp_status: "pending"
-    };
+    
+    const clientName = document.getElementById('form-client').value;
+    const clientEmail = document.getElementById('form-email').value;
+    const empresa = document.getElementById('form-empresa')?.value || null;
+    const tipo = document.getElementById('form-cliente-tipo')?.value || 'regular';
+    const direccion = document.getElementById('form-direccion')?.value || null;
+    const tagsInput = document.getElementById('form-tags')?.value || '';
+    const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+    const assignedUserId = document.getElementById('form-assigned-user')?.value || null;
 
     try {
-        const { error } = await dbClient
-            .from('orders')
-            .insert([payload]);
+        // Crear o buscar cliente
+        let customerId = null;
+        
+        // Buscar si el cliente ya existe
+        const existingCustomer = globalCustomers.find(c => 
+            c.email === clientEmail || (clientEmail === '' && c.name === clientName)
+        );
+        
+        if (existingCustomer) {
+            customerId = existingCustomer.id;
+        } else {
+            // Crear nuevo cliente
+            const { data: newCustomer, error: customerError } = await dbClient
+                .from('customers')
+                .insert([{
+                    tenant_id: DEFAULT_TENANT_ID,
+                    name: clientName,
+                    phone: document.getElementById('form-phone').value,
+                    email: clientEmail || null,
+                    empresa: empresa,
+                    tipo: tipo,
+                    direccion: direccion,
+                    tags: tags
+                }])
+                .select();
 
-        if (!error) {
+            if (!customerError && newCustomer) {
+                customerId = newCustomer[0].id;
+                // Log audit para nuevo cliente
+                await logAudit('customers', customerId, 'INSERT', null, newCustomer[0]);
+            }
+        }
+
+        const payload = {
+            tenant_id: DEFAULT_TENANT_ID,
+            client_name: clientName,
+            contact_phone: document.getElementById('form-phone').value,
+            email: clientEmail,
+            object_name: document.getElementById('form-object').value,
+            service_details: finalServiceDetails,
+            budget: document.getElementById('form-budget').value,
+            estimated_date: document.getElementById('form-date').value,
+            status: "recibido",
+            wpp_status: "pending",
+            assigned_user_id: assignedUserId,
+            customer_id: customerId
+        };
+
+        const { data, error } = await dbClient
+            .from('orders')
+            .insert([payload])
+            .select();
+
+        if (!error && data) {
+            const newOrderId = data[0].id;
+            // Log audit
+            await logAudit('orders', newOrderId, 'INSERT', null, payload);
+            
             await initData(); // Refrescar los datos desde Supabase
             closeOrderModal();
+            showToast("Orden creada correctamente");
         } else {
             alert("Error de Supabase al guardar la orden: " + error.message);
         }
@@ -635,6 +1012,165 @@ function renderKPIs() {
     document.getElementById('kpi-listas').textContent = listas;
     document.getElementById('kpi-materiales').textContent = materiales;
     document.getElementById('kpi-clientes').textContent = cliSet.size;
+
+    // Nuevos KPIs para reportes
+    updateReports();
+}
+
+// --- FASE 2: Reportes Avanzados ---
+
+function getMonthRange() {
+    const monthParam = document.getElementById('report-month')?.value || '';
+    const months = monthParam ? parseInt(monthParam) : 0;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+    return { startDate, endDate };
+}
+
+function getFilteredOrders() {
+    const { startDate, endDate } = getMonthRange();
+    return globalOrders.filter(o => {
+        const orderDate = new Date(o.date);
+        return orderDate >= startDate && orderDate <= endDate;
+    });
+}
+
+function calculateMarginMetrics() {
+    const filtered = getFilteredOrders();
+    if (filtered.length === 0) return { average: 0, total: 0 };
+
+    let marginSum = 0;
+    let marginCount = 0;
+
+    filtered.forEach(order => {
+        if (order.service && order.service.includes('- Margen:')) {
+            const marginMatch = order.service.match(/- Margen:\s*\$?([-+]?[0-9]*\.?[0-9]+)/);
+            if (marginMatch) {
+                marginSum += parseFloat(marginMatch[1]);
+                marginCount++;
+            }
+        }
+    });
+
+    return {
+        average: marginCount > 0 ? (marginSum / marginCount) : 0,
+        total: marginSum,
+        count: marginCount
+    };
+}
+
+function calculateAverageClosureTime() {
+    const delivered = globalOrders.filter(o => o.status === 'entregado');
+    if (delivered.length === 0) return 0;
+
+    let totalDays = 0;
+    delivered.forEach(order => {
+        const createdDate = new Date(order.date);
+        const closedDate = new Date(); // Aproximado (usaría created_at si estuviera disponible)
+        const days = Math.floor((closedDate - createdDate) / (1000 * 60 * 60 * 24));
+        totalDays += Math.max(0, days);
+    });
+
+    return Math.round(totalDays / delivered.length);
+}
+
+function calculateForecast() {
+    const filtered = getFilteredOrders();
+    const inProgress = filtered.filter(o => 
+        ['recibido', 'cotizado', 'presupuestado', 'proceso', 'materiales'].includes(o.status)
+    );
+
+    const totalBudget = inProgress.reduce((sum, o) => sum + (Number(o.budget) || 0), 0);
+    
+    // Proyección: asume que ~70% de las órdenes en progreso se completarán
+    return totalBudget * 0.7;
+}
+
+function renderPipelineMetrics() {
+    const filtered = getFilteredOrders();
+    const pipelineEl = document.getElementById('pipeline-metrics');
+    if (!pipelineEl) return;
+
+    const pipeline = {};
+    orderStatuses.forEach(status => {
+        pipeline[status] = filtered.filter(o => o.status === status).length;
+    });
+
+    const totalCount = Object.values(pipeline).reduce((a, b) => a + b, 0);
+
+    let html = '';
+    orderStatuses.forEach(status => {
+        const count = pipeline[status];
+        const percentage = totalCount > 0 ? ((count / totalCount) * 100).toFixed(1) : 0;
+        const label = statusConfig[status]?.label || status;
+        
+        html += `
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <strong>${label}</strong>
+                    <span style="color: var(--text-secondary);">${count} (${percentage}%)</span>
+                </div>
+                <div style="background: var(--bg-color); border-radius: 4px; overflow: hidden; height: 24px;">
+                    <div style="background: linear-gradient(90deg, var(--primary-color), var(--primary-hover)); height: 100%; width: ${percentage}%; transition: width 0.3s;"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    pipelineEl.innerHTML = html;
+}
+
+function renderMarginMetrics() {
+    const { average, total, count } = calculateMarginMetrics();
+    const marginEl = document.getElementById('margin-metrics');
+    if (!marginEl) return;
+
+    const avgPercentage = count > 0 ? ((average / getFilteredOrders().reduce((s, o) => s + (Number(o.budget) || 0), 0)) * 100 || 0).toFixed(1) : 0;
+
+    let html = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+                <p style="color: var(--text-secondary); margin: 0;">Margen Total</p>
+                <p style="font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0;">$${total.toLocaleString('es-AR', {maximumFractionDigits: 2})}</p>
+            </div>
+            <div>
+                <p style="color: var(--text-secondary); margin: 0;">Promedio Margen</p>
+                <p style="font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0;">$${average.toLocaleString('es-AR', {maximumFractionDigits: 2})}</p>
+            </div>
+            <div>
+                <p style="color: var(--text-secondary); margin: 0;">Órdenes con Costo Calculado</p>
+                <p style="font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0;">${count}</p>
+            </div>
+            <div>
+                <p style="color: var(--text-secondary); margin: 0;">% Promedio</p>
+                <p style="font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0;">${avgPercentage}%</p>
+            </div>
+        </div>
+    `;
+
+    marginEl.innerHTML = html;
+}
+
+function updateReports() {
+    const marginData = calculateMarginMetrics();
+    const closureTime = calculateAverageClosureTime();
+    const forecast = calculateForecast();
+    const filtered = getFilteredOrders();
+    const totalRevenue = filtered.reduce((sum, o) => sum + (Number(o.budget) || 0), 0);
+
+    // Actualizar KPIs
+    document.getElementById('kpi-ingresos').textContent = `$${totalRevenue.toLocaleString('es-AR')}`;
+    document.getElementById('kpi-margen-promedio').textContent = 
+        marginData.count > 0 ? 
+        `$${marginData.average.toLocaleString('es-AR', {maximumFractionDigits: 2})}` : 
+        '$0';
+    document.getElementById('kpi-tiempo-promedio').textContent = `${closureTime} días`;
+    document.getElementById('kpi-forecast').textContent = `$${forecast.toLocaleString('es-AR')}`;
+
+    // Renderizar métricos
+    renderPipelineMetrics();
+    renderMarginMetrics();
 }
 
 function generateActionButtons(orderId, isDashboard) {

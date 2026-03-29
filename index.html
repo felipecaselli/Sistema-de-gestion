@@ -3,8 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SaaS Talleres - Gestión de Órdenes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="CMB - Sistema de gestión de órdenes para talleres, presupuestos y cálculo de márgenes">
+    <meta name="theme-color" content="#4F46E5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CMB">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%234F46E5' width='192' height='192'/><text x='96' y='120' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>CMB</text></svg>">
+    <link rel="manifest" href="/manifest.json">
+    
+    <title>CMB - Gestión de Órdenes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -182,8 +190,11 @@
                         <select id="filter-status" class="form-control" style="width:180px;">
                             <option value="">Todos los estados</option>
                             <option value="recibido">Recibido</option>
+                            <option value="cotizado">Cotizado</option>
+                            <option value="presupuestado">Presupuestado</option>
                             <option value="proceso">En Proceso</option>
                             <option value="materiales">Espera Materiales</option>
+                            <option value="rechazado">Rechazado</option>
                             <option value="listo">Listo p/ Entrega</option>
                             <option value="entregado">Entregado</option>
                         </select>
@@ -290,6 +301,15 @@
                         <h1>Reportes y Estadísticas</h1>
                         <p>Resumen del rendimiento y actividad del negocio.</p>
                     </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <select id="report-month" class="form-control" style="width: auto;" onchange="updateReports()">
+                            <option value="">Mes Actual</option>
+                            <option value="1">Último Mes</option>
+                            <option value="3">Últimos 3 Meses</option>
+                            <option value="6">Últimos 6 Meses</option>
+                            <option value="12">Año Completo</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="stats-grid">
@@ -302,35 +322,71 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-header">
-                            <span>Ingresos Efectivos (Cobrados)</span>
-                            <div class="stat-icon blue"><i data-lucide="wallet"></i></div>
+                            <span>Margen Total Promedio</span>
+                            <div class="stat-icon blue"><i data-lucide="trending-up"></i></div>
                         </div>
-                        <div class="stat-value" id="kpi-ingresos-efectivos">$0</div>
+                        <div class="stat-value" id="kpi-margen-promedio">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Tiempo Promedio Cierre</span>
+                            <div class="stat-icon purple"><i data-lucide="clock"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-tiempo-promedio">0 días</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Forecast Mes Siguiente</span>
+                            <div class="stat-icon orange"><i data-lucide="zap"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-forecast">$0</div>
                     </div>
                 </div>
 
                 <div class="charts-grid">
                     <div class="card chart-card">
                         <div class="card-header">
-                            <h2 class="card-title">Distribución de Estados</h2>
+                            <h2 class="card-title">Distribución de Estados (Embudo)</h2>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="statusChart"></canvas>
+                        <div style="padding: 1rem;">
+                            <div id="pipeline-metrics" style="display: flex; flex-direction: column; gap: 1rem;">
+                                <!-- Populated by JavaScript -->
+                            </div>
                         </div>
                     </div>
+                    
                     <div class="card chart-card">
                         <div class="card-header">
-                            <h2 class="card-title">Ingresos por Mes</h2>
+                            <h2 class="card-title">Margen por Período</h2>
+                        </div>
+                        <div id="margin-metrics" style="padding: 1rem; font-size: 0.9rem;">
+                            <p style="color: var(--text-secondary);">Cargando...</p>
+                        </div>
+                    </div>
+
+                    <div class="card chart-card full-width">
+                        <div class="card-header">
+                            <h2 class="card-title">Ingresos Proyectados vs Reales</h2>
                         </div>
                         <div class="chart-container">
                             <canvas id="revenueChart"></canvas>
                         </div>
                     </div>
-                    <div class="card chart-card full-width">
+
+                    <div class="card chart-card">
                         <div class="card-header">
-                            <h2 class="card-title">Top Clientes Frecuentes</h2>
+                            <h2 class="card-title">Tipo de Cliente (Distribución)</h2>
                         </div>
-                        <div class="chart-container chart-large">
+                        <div class="chart-container">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h2 class="card-title">Top Clientes</h2>
+                        </div>
+                        <div class="chart-container">
                             <canvas id="topClientsChart"></canvas>
                         </div>
                     </div>
@@ -382,6 +438,33 @@
                         <div class="form-group full">
                             <label>Email (Opcional)</label>
                             <input type="email" id="form-email" class="form-control" placeholder="juan@ejemplo.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Empresa (Opcional)</label>
+                            <input type="text" id="form-empresa" class="form-control" placeholder="Ej: Construcciones Pérez">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Cliente</label>
+                            <select id="form-cliente-tipo" class="form-control">
+                                <option value="regular">Regular</option>
+                                <option value="vip">VIP</option>
+                                <option value="corporativo">Corporativo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Dirección (Opcional)</label>
+                            <input type="text" id="form-direccion" class="form-control" placeholder="Ej: Calle Principal 123">
+                        </div>
+                        <div class="form-group full">
+                            <label>Tags/Etiquetas (Opcional - separadas por comas)</label>
+                            <input type="text" id="form-tags" class="form-control" placeholder="Ej: regular, madera, antigüedad">
+                        </div>
+                        <div class="form-group">
+                            <label>Asignar a Usuario</label>
+                            <select id="form-assigned-user" class="form-control">
+                                <option value="">Sin asignar</option>
+                                <!-- Populated by JavaScript -->
+                            </select>
                         </div>
                     </div>
 
@@ -553,6 +636,17 @@
                         </div>
                     </div>
                 </div>
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                        <h4 style="margin: 0; font-weight: 600;">Historial de Órdenes del Cliente</h4>
+                        <button type="button" class="icon-btn" onclick="loadOrderHistory()" title="Recargar historial" style="font-size: 0.85rem;">
+                            <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+                        </button>
+                    </div>
+                    <div id="view-customer-history" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem;">
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">Cargando...</p>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeViewOrderModal()">Cerrar</button>
@@ -587,6 +681,82 @@
     <div id="toast-container" style="position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px;"></div>
 
     <script src="app.js"></script>
+    
+    <!-- Service Worker Registration para PWA + Offline Sync -->
+    <script>
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+                    .then((registration) => {
+                        console.log('[App] Service Worker registered successfully:', registration);
+                        
+                        // Escuchar actualizaciones del SW
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('[App] New Service Worker available, update ready');
+                                    showToast('✅ Actualización disponible, recarga la página para obtenerla');
+                                }
+                            });
+                        });
+
+                        // Intentar sync offline cuando se recupere la conexión
+                        if ('sync' in registration) {
+                            window.addEventListener('online', () => {
+                                console.log('[App] Online detected, syncing offline requests...');
+                                registration.sync.register('sync-offline-requests');
+                            });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('[App] Service Worker registration failed:', error);
+                    });
+                
+                // Escuchar mensajes del Service Worker
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        if (event.data.type === 'SYNC_COMPLETE') {
+                            console.log('[App] Sync complete:', event.data);
+                            if (event.data.success > 0) {
+                                showToast(`✅ ${event.data.success} cambios sincronizados`);
+                                initData(); // Recargar datos
+                            }
+                            if (event.data.failed > 0) {
+                                showToast(`⚠️ ${event.data.failed} cambios no pudieron sincronizarse`);
+                            }
+                        }
+                    });
+                }
+            });
+        } else {
+            console.log('[App] Service Workers are not supported in this browser');
+        }
+
+        // Detectar cambio online/offline
+        window.addEventListener('offline', () => {
+            console.log('[App] Browser is now OFFLINE - cambios se guardarán para sincronizar después');
+            showToast('📡 Sin conexión - los cambios se guardarán automáticamente', 'warning');
+        });
+
+        window.addEventListener('online', () => {
+            console.log('[App] Browser is now ONLINE - sincronizando cambios...');
+            showToast('📡 Conexión restaurada - sincronizando cambios...', 'success');
+            
+            // Forzar sync manual si es necesario
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SYNC_OFFLINE_REQUESTS'
+                });
+            }
+        });
+
+        // Detectar si está offline al cargar
+        if (!navigator.onLine) {
+            showToast('📡 Modo offline - tendrás acceso a tus datos en caché', 'info');
+        }
+    </script>
 </body>
 
 </html>

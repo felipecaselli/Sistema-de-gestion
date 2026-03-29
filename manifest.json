@@ -1,0 +1,73 @@
+{
+  "name": "CMB - Gestión de Órdenes para Talleres",
+  "short_name": "CMB",
+  "description": "Sistema de gestión de órdenes, presupuestos y cálculo de márgenes para talleres y artesanías",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%234F46E5' width='192' height='192'/><text x='96' y='120' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>CMB</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%234F46E5' width='512' height='512'/><text x='256' y='340' font-size='200' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>CMB</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23F9FAFB' width='540' height='720'/><rect fill='%234F46E5' width='540' height='100'/><text x='270' y='60' font-size='24' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>CMB - Gestión</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Nueva Orden",
+      "short_name": "Nueva Orden",
+      "description": "Crear una nueva orden de trabajo",
+      "url": "/?page=orders",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%234F46E5' width='96' height='96'/><text x='48' y='60' font-size='40' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>+</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Ver Órdenes",
+      "short_name": "Órdenes",
+      "description": "Ver todas las órdenes de trabajo",
+      "url": "/?page=orders",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%234F46E5' width='96' height='96'/><text x='48' y='60' font-size='40' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>📋</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/?share=true",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "prefer_related_applications": false
+}
