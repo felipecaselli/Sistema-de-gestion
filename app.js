@@ -1327,6 +1327,95 @@ if (completeModalOverlay) {
     });
 }
 
+const auditModalOverlay = document.getElementById('audit-modal');
+if (auditModalOverlay) {
+    auditModalOverlay.addEventListener('click', (e) => {
+        if (e.target === auditModalOverlay) closeAuditModal();
+    });
+}
+
+// --- Audit UI ---
+async function openAuditModal() {
+    const modal = document.getElementById('audit-modal');
+    if (!modal) return;
+    
+    modal.classList.add('open');
+    const tbody = document.getElementById('audit-tbody');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Cargando auditoría...</td></tr>';
+    
+    try {
+        const { data, error } = await dbClient
+            .from('audit_log')
+            .select('*')
+            .eq('tenant_id', DEFAULT_TENANT_ID)
+            .order('created_at', { ascending: false })
+            .limit(50);
+            
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay registros de auditoría aún.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        data.forEach(log => {
+            const dateStr = new Date(log.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+            
+            // Buscar nombre de usuario
+            let userName = log.changed_by;
+            if (globalUsers && globalUsers.length > 0) {
+                const u = globalUsers.find(user => user.id === log.changed_by);
+                if (u) userName = u.name || u.email;
+            }
+            if (!userName) userName = "Sistema / Bot";
+
+            // Formatear acción
+            let actionText = log.action === 'INSERT' ? 'Creación' : log.action === 'UPDATE' ? 'Actualización' : 'Eliminación';
+            let actionColor = log.action === 'INSERT' ? 'var(--secondary-color)' : log.action === 'UPDATE' ? 'var(--primary-color)' : 'var(--danger-color)';
+            
+            // Detalles de cambios
+            let detailsHtml = `<strong>ID Ref:</strong> ${log.record_id || '-'}`;
+            if (log.action === 'UPDATE' && log.new_values) {
+                const changes = [];
+                for (const key in log.new_values) {
+                    const oldVal = (log.old_values && log.old_values[key] !== undefined) ? log.old_values[key] : '-';
+                    const newVal = log.new_values[key];
+                    if (oldVal !== newVal && key !== 'updated_at') {
+                        // Truncar textos muy largos
+                        let sOld = String(oldVal);
+                        let sNew = String(newVal);
+                        if(sOld.length > 40) sOld = sOld.substring(0,40) + '...';
+                        if(sNew.length > 40) sNew = sNew.substring(0,40) + '...';
+                        changes.push(`<em>${key}</em>: ${sOld} ➔ <b>${sNew}</b>`);
+                    }
+                }
+                if (changes.length > 0) {
+                    detailsHtml += `<br><div style="font-size:0.85em; color:var(--text-secondary); margin-top:0.3rem">${changes.join('<br>')}</div>`;
+                }
+            }
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="white-space:nowrap">${dateStr}</td>
+                <td>${userName}</td>
+                <td><span style="color: ${actionColor}; font-weight: 600; font-size:0.85rem">${actionText}<br><small style="color:var(--text-secondary); font-weight:normal">${log.table_name}</small></span></td>
+                <td>${detailsHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+    } catch (err) {
+        console.error("Error cargando auditoría:", err);
+        const errMsg = err.message || err.toString();
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--danger-color);">Error de base de datos: ${errMsg}<br><small>Verifica que la tabla 'audit_log' exista en Supabase y tenga permisos de lectura (RLS permitiendo SELECT).</small></td></tr>`;
+    }
+}
+
+function closeAuditModal() {
+    const modal = document.getElementById('audit-modal');
+    if (modal) modal.classList.remove('open');
+}
 
 // --- State Cycle ---
 async function cycleStatus(orderId) {

@@ -475,6 +475,10 @@
                     <p style="color:var(--text-secondary)">Ajusta los detalles del taller y servicios ofrecidos.</p>
                     <div style="display:flex; justify-content:space-between; margin-top:1rem;">
                         <button class="primary-btn" onclick="clearData()">Borrar Datos (Reiniciar)</button>
+                        <button class="btn-secondary" onclick="openAuditModal()">
+                            <i data-lucide="clipboard-list" style="width:18px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
+                            Ver Auditoría
+                        </button>
                         <button class="btn-secondary" id="dark-mode-toggle" onclick="toggleDarkMode()">
                             <i data-lucide="moon" id="dark-mode-icon" style="width:18px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
                             <span id="dark-mode-text">Activar Modo Oscuro</span>
@@ -724,6 +728,37 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeViewOrderModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Audit -->
+    <div class="modal-overlay" id="audit-modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="card-title" style="margin:0;">Registro de Auditoría</h2>
+                <button class="icon-btn" onclick="closeAuditModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <p style="color:var(--text-secondary); margin-bottom:1rem;">Historial de cambios manuales realizados en el sistema por los usuarios.</p>
+                <div class="table-container">
+                    <table style="min-width: 600px; font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                                <th>Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-tbody">
+                            <tr><td colspan="4" style="text-align:center;">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeAuditModal()">Cerrar</button>
             </div>
         </div>
     </div>
