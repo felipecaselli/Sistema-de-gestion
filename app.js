@@ -404,11 +404,10 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Evitar conflicto con la variable global 'supabase' de Supabase CDN:
 const dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 const DEFAULT_TENANT_ID = 'taller-demo';
-const orderStatuses = ['recibido', 'cotizado', 'presupuestado', 'proceso', 'materiales', 'rechazado', 'listo', 'entregado'];
+const orderStatuses = ['recibido', 'presupuestado', 'proceso', 'materiales', 'rechazado', 'listo', 'entregado'];
 
 const statusConfig = {
     recibido: { label: "Recibido", class: "status-received" },
-    cotizado: { label: "Cotizado", class: "status-quoted" },
     presupuestado: { label: "Presupuestado", class: "status-budgeted" },
     proceso: { label: "En Proceso", class: "status-process" },
     materiales: { label: "Espera Mat.", class: "status-materials" },
@@ -1681,6 +1680,9 @@ function renderAllOrders() {
         let serviceText = order.service || '';
         if (serviceText.includes('---\nEscandallo')) {
             serviceText = serviceText.split('---\nEscandallo')[0].trim();
+        }
+        if (serviceText.includes('- Costo hora:')) {
+            serviceText = serviceText.split('- Costo hora:')[0].trim();
         }
 
         const tr = document.createElement('tr');
