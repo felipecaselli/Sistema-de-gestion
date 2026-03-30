@@ -404,14 +404,13 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Evitar conflicto con la variable global 'supabase' de Supabase CDN:
 const dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 const DEFAULT_TENANT_ID = 'taller-demo';
-const orderStatuses = ['recibido', 'presupuestado', 'proceso', 'materiales', 'rechazado', 'listo', 'entregado'];
+const orderStatuses = ['recibido', 'presupuestado', 'proceso', 'materiales', 'listo', 'entregado'];
 
 const statusConfig = {
     recibido: { label: "Recibido", class: "status-received" },
     presupuestado: { label: "Presupuestado", class: "status-budgeted" },
     proceso: { label: "En Proceso", class: "status-process" },
     materiales: { label: "Espera Mat.", class: "status-materials" },
-    rechazado: { label: "Rechazado", class: "status-rejected" },
     listo: { label: "Listo p/ Entrega", class: "status-ready" },
     entregado: { label: "Entregado", class: "status-delivered" }
 };
@@ -635,16 +634,7 @@ function showToast(message, type = 'success') {
     container.appendChild(toast);
     lucide.createIcons();
 
-    // Notificación en el sistema operativo
-    if ('Notification' in window) {
-        if (Notification.permission === 'granted') {
-            new Notification('CMB - Gestión de Órdenes', { body: message });
-        } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(p => {
-                if (p === 'granted') new Notification('CMB - Gestión de Órdenes', { body: message });
-            });
-        }
-    }
+    // Notificación nativa desactivada para evitar prompts molestos en archivo local (file://)
 
     // Auto-destrucción visual del globo flotante
     setTimeout(() => {
@@ -653,10 +643,7 @@ function showToast(message, type = 'success') {
     }, 6000); // Se va a los 6 segundos
 }
 
-// Configurar permiso preventivo de notificaciones al primer clic que hagas en la página web
-if ('Notification' in window && Notification.permission !== 'denied') {
-    document.addEventListener('click', () => Notification.requestPermission(), {once: true});
-}
+// Permiso preventivo de notificaciones removido para uso local sin servidor web
 
 // --- PWA & OFFLINE FUNCTIONS ---
 
