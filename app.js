@@ -511,6 +511,7 @@ async function initData() {
                     service: o.service_details,
                     budget: o.budget || 0,
                     date: o.estimated_date || o.created_at.split('T')[0],
+                    createdAt: o.created_at,
                     status: o.status,
                     wppStatus: o.wpp_status,
                     assignedUserId: o.assigned_user_id,
@@ -554,6 +555,7 @@ async function pollData() {
                     service: o.service_details,
                     budget: o.budget || 0,
                     date: o.estimated_date || o.created_at.split('T')[0],
+                    createdAt: o.created_at,
                     status: o.status,
                     wppStatus: o.wpp_status,
                     assignedUserId: o.assigned_user_id,
@@ -1496,27 +1498,41 @@ function renderKPIs() {
 
 function getMonthRange() {
     const monthParam = document.getElementById('report-month')?.value || '';
-    const months = monthParam ? parseInt(monthParam) : 0;
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - months);
+    
+    if (monthParam === '') {
+        // Mes Actual
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+    } else {
+        const months = parseInt(monthParam);
+        startDate.setMonth(startDate.getMonth() - months);
+    }
+    
+    // Asegurar que abarque todo el dia actual
+    endDate.setHours(23, 59, 59, 999);
+    
     return { startDate, endDate };
 }
 
 function getFilteredOrders() {
     const { startDate, endDate } = getMonthRange();
     return globalOrders.filter(o => {
-        const orderDate = new Date(o.date);
+        const dateString = o.createdAt || o.date;
+        const parseString = dateString.includes('T') ? dateString : dateString + 'T12:00:00';
+        const orderDate = new Date(parseString);
         return orderDate >= startDate && orderDate <= endDate;
     });
 }
 
 function calculateMarginMetrics() {
     const filtered = getFilteredOrders();
-    if (filtered.length === 0) return { average: 0, total: 0 };
+    if (filtered.length === 0) return { average: 0, total: 0, count: 0, percentage: 0 };
 
     let marginSum = 0;
     let marginCount = 0;
+    let calculatedBudgetSum = 0;
 
     filtered.forEach(order => {
         if (order.service && order.service.includes('- Margen:')) {
@@ -1524,6 +1540,7 @@ function calculateMarginMetrics() {
             if (marginMatch) {
                 marginSum += parseFloat(marginMatch[1]);
                 marginCount++;
+                calculatedBudgetSum += (Number(order.budget) || 0);
             }
         }
     });
@@ -1531,7 +1548,8 @@ function calculateMarginMetrics() {
     return {
         average: marginCount > 0 ? (marginSum / marginCount) : 0,
         total: marginSum,
-        count: marginCount
+        count: marginCount,
+        percentage: (marginCount > 0 && calculatedBudgetSum > 0) ? ((marginSum / calculatedBudgetSum) * 100) : 0
     };
 }
 
@@ -1597,11 +1615,11 @@ function renderPipelineMetrics() {
 }
 
 function renderMarginMetrics() {
-    const { average, total, count } = calculateMarginMetrics();
+    const { average, total, count, percentage } = calculateMarginMetrics();
     const marginEl = document.getElementById('margin-metrics');
     if (!marginEl) return;
 
-    const avgPercentage = count > 0 ? ((average / getFilteredOrders().reduce((s, o) => s + (Number(o.budget) || 0), 0)) * 100 || 0).toFixed(1) : 0;
+    const avgPercentage = percentage.toFixed(1);
 
     let html = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -1646,6 +1664,9 @@ function updateReports() {
     // Renderizar métricos
     renderPipelineMetrics();
     renderMarginMetrics();
+    if (typeof renderCanvasCharts === 'function') {
+        renderCanvasCharts(filtered);
+    }
 }
 
 function generateActionButtons(orderId, isDashboard) {
@@ -1834,25 +1855,14 @@ function renderCustomers() {
 }
 
 function renderReports() {
-    // 1. KPI Total Ingresos Estimados
-    const totalIngresos = globalOrders.reduce((sum, o) => {
-        return sum + (parseFloat(o.budget) || 0);
-    }, 0);
-    const kpiIngresos = document.getElementById('kpi-ingresos');
-    if (kpiIngresos) kpiIngresos.textContent = `$${totalIngresos.toLocaleString('es-AR')}`;
+    updateReports();
+}
 
-    // 1b. KPI Ingresos Efectivos (Solo Entregados)
-    const ingresosEfectivos = globalOrders.reduce((sum, o) => {
-        if (o.status === 'entregado') return sum + (parseFloat(o.budget) || 0);
-        return sum;
-    }, 0);
-    const kpiEfectivos = document.getElementById('kpi-ingresos-efectivos');
-    if (kpiEfectivos) kpiEfectivos.textContent = `$${ingresosEfectivos.toLocaleString('es-AR')}`;
-
+function renderCanvasCharts(filteredOrders) {
     // Prepare data for charts
     if (typeof Chart === 'undefined') return;
 
-    // Destroy existing charts to replace them (avoid canvas reuse issue)
+    // Destroy existing charts to replace them
     if (statusChartInstance) statusChartInstance.destroy();
     if (revenueChartInstance) revenueChartInstance.destroy();
     if (topClientsChartInstance) topClientsChartInstance.destroy();
@@ -1860,7 +1870,7 @@ function renderReports() {
     // Chart 1: Distribución de Estados
     const ctxStatus = document.getElementById('statusChart');
     if (ctxStatus) {
-        const statusCounts = orderStatuses.map(st => globalOrders.filter(o => o.status === st).length);
+        const statusCounts = orderStatuses.map(st => filteredOrders.filter(o => o.status === st).length);
         const statusLabels = orderStatuses.map(st => statusConfig[st].label);
         
         statusChartInstance = new Chart(ctxStatus, {
@@ -1870,18 +1880,10 @@ function renderReports() {
                 datasets: [{
                     data: statusCounts,
                     backgroundColor: [
-                        '#EEF2FF', // recibido (primary-light)
-                        '#FEF3C7', // proceso (warning-light)
-                        '#FEE2E2', // materiales (danger-light)
-                        '#D1FAE5', // listo (secondary-light)
-                        '#F3F4F6'  // entregado (delivered-light)
+                        '#EEF2FF', '#FEF3C7', '#FEE2E2', '#D1FAE5', '#F3F4F6'
                     ],
                     borderColor: [
-                        '#4F46E5', // primary
-                        '#F59E0B', // warning
-                        '#EF4444', // danger
-                        '#10B981', // secondary
-                        '#6B7280'  // delivered gray
+                        '#4F46E5', '#F59E0B', '#EF4444', '#10B981', '#6B7280'
                     ],
                     borderWidth: 1
                 }]
@@ -1894,20 +1896,28 @@ function renderReports() {
         });
     }
 
-    // Chart 2: Ingresos por Mes
+    // Chart 2: Ingresos por Mes (Trend using global orders)
     const ctxRevenue = document.getElementById('revenueChart');
     if (ctxRevenue) {
         const ingresosPorMes = {};
         globalOrders.forEach(o => {
             if (!o.date) return;
-            const d = new Date(o.date);
+            // fix timezone day shift bug
+            const d = new Date(o.date + "T12:00:00");
             const mesAnio = `${d.getMonth() + 1}/${d.getFullYear()}`;
             if (!ingresosPorMes[mesAnio]) ingresosPorMes[mesAnio] = 0;
             ingresosPorMes[mesAnio] += (parseFloat(o.budget) || 0);
         });
 
-        const mesesLabels = Object.keys(ingresosPorMes);
-        const mesesData = Object.values(ingresosPorMes);
+        // Sort properly by date
+        const sortedMonths = Object.keys(ingresosPorMes).sort((a,b) => {
+            const [mA, yA] = a.split('/').map(Number);
+            const [mB, yB] = b.split('/').map(Number);
+            return yA === yB ? mA - mB : yA - yB;
+        });
+
+        const mesesLabels = sortedMonths;
+        const mesesData = sortedMonths.map(m => ingresosPorMes[m]);
 
         revenueChartInstance = new Chart(ctxRevenue, {
             type: 'bar',
@@ -1935,13 +1945,12 @@ function renderReports() {
     const ctxClients = document.getElementById('topClientsChart');
     if (ctxClients) {
         const cmap = new Map();
-        globalOrders.forEach(o => {
+        filteredOrders.forEach(o => {
             const key = o.client;
             if (!cmap.has(key)) cmap.set(key, 0);
             cmap.set(key, cmap.get(key) + 1);
         });
 
-        // Ordenar clientes por cantidad de trabajos y tomar los primeros 5
         const sortedClients = Array.from(cmap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
         const clientLabels = sortedClients.map(c => c[0]);
         const clientData = sortedClients.map(c => c[1]);
