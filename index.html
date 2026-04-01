@@ -385,7 +385,8 @@
                         <h1>Reportes y Estadísticas</h1>
                         <p>Resumen del rendimiento y actividad del negocio.</p>
                     </div>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items:center;">
+                        <button class="btn-secondary" style="border-color:var(--primary-light); color:var(--primary-color)" id="btn-analista-ia" onclick="generateFinancialInsights()"><i data-lucide="sparkles" style="width:14px; margin-right:4px; display:inline-block;"></i> Analista Financiero (IA)</button>
                         <select id="report-month" class="form-control" style="width: auto;" onchange="updateReports()">
                             <option value="">Mes Actual</option>
                             <option value="1">Último Mes</option>
@@ -394,6 +395,11 @@
                             <option value="12">Año Completo</option>
                         </select>
                     </div>
+                </div>
+
+                <div id="ai-insights-container" style="display:none; margin-bottom:1.5rem; padding:1.5rem; border-left:4px solid var(--primary-color); border-radius:8px; background:var(--bg-alt); width:100%;">
+                    <h3 style="display:flex; align-items:center; gap:0.5rem; margin-top:0; color:var(--primary-color)"><i data-lucide="sparkles"></i> Conclusiones Tácticas del Mes</h3>
+                    <div id="ai-insights-content" style="font-size:0.95rem; line-height:1.6; color:var(--text-color);">Cargando análisis...</div>
                 </div>
                 
                 <div class="stats-grid">
@@ -508,6 +514,18 @@
                         </button>
                     </div>
                 </div>
+                
+                <div class="card" style="padding:2rem; margin-top:2rem; border-left: 4px solid var(--primary-color);">
+                    <h2 class="card-title" style="display:flex; align-items:center; gap:0.5rem;"><i data-lucide="sparkles" style="color:var(--primary-color);"></i> Inteligencia Artificial (Módulo Gratuito)</h2>
+                    <p style="color:var(--text-secondary)">Añade funciones mágicas usando Google Gemini. Solo necesitas ingresar tu clave gratuita. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary-color)">Consigue tu API Key aquí</a>.</p>
+                    <div class="form-group" style="margin-top:1rem; max-width: 500px;">
+                        <label>Google Gemini API Key</label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="password" id="gemini-api-key" class="form-control" placeholder="AIzaSy...">
+                            <button class="primary-btn" onclick="saveGeminiKey()">Guardar</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </main>
@@ -579,7 +597,10 @@
                                 placeholder="Ej: Silla mecedora antigua de roble" required>
                         </div>
                         <div class="form-group full">
-                            <label>Descripción del servicio *</label>
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Descripción del servicio *</span>
+                                <button type="button" class="btn-secondary" style="font-size:0.75rem; padding: 0.2rem 0.5rem; border-color:var(--primary-light); color:var(--primary-color)" onclick="magicWriteService('form-service')" title="Mejorar redacción con Inteligencia Artificial"><i data-lucide="sparkles" style="width:12px; margin-right:4px; display:inline-block;"></i> Mejorar con IA</button>
+                            </label>
                             <textarea id="form-service" class="form-control"
                                 placeholder="Detalla qué reparaciones, restauraciones o modificaciones se realizarán..."
                                 required></textarea>
@@ -684,7 +705,10 @@
                             <input type="text" id="edit-form-object" class="form-control" required>
                         </div>
                         <div class="form-group full">
-                            <label>Descripción del servicio *</label>
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Descripción del servicio *</span>
+                                <button type="button" class="btn-secondary" style="font-size:0.75rem; padding: 0.2rem 0.5rem; border-color:var(--primary-light); color:var(--primary-color)" onclick="magicWriteService('edit-form-service')" title="Mejorar redacción con Inteligencia Artificial"><i data-lucide="sparkles" style="width:12px; margin-right:4px; display:inline-block;"></i> Mejorar con IA</button>
+                            </label>
                             <textarea id="edit-form-service" class="form-control" required></textarea>
                         </div>
                         <div class="form-group">
@@ -728,6 +752,7 @@
                         <p style="margin: 0.5rem 0; color: var(--danger-color); font-weight: 600;"><strong>Saldo a Cobrar:</strong> $<span id="view-debt">0</span></p>
                         <p style="margin: 0.5rem 0;"><strong>Estado:</strong> <span id="view-status">-</span></p>
                         <p style="margin: 0.5rem 0;"><strong>Fecha Entrega:</strong> <span id="view-date">-</span></p>
+                        <button class="btn-secondary" style="margin-top:1rem; width:100%; border-color:#25D366; color:#25D366; font-weight:600;" onclick="generateSmartWhatsapp()"><i data-lucide="message-circle" style="width:18px; margin-right:6px; display:inline-block; vertical-align:middle;"></i> WhatsApp Inteligente (IA)</button>
                         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                             <p style="margin: 0.5rem 0;"><strong>Descripción:</strong></p>
                             <p id="view-service-desc" style="margin: 0.5rem 0; font-size: 0.9rem; color: var(--text-secondary); white-space: pre-wrap;"></p>

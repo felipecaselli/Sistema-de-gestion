@@ -1,0 +1,556 @@
+diff --git a/app.js b/app.js
+index a4d4c30..c38dc0d 100644
+--- a/app.js
++++ b/app.js
+@@ -1219,11 +1219,23 @@ async function updateOrderBudget() {
+     }
+ }
+ 
+-
+ async function submitOrder() {
++    const btn = document.querySelector('button[onclick="submitOrder()"]');
++    const originalText = btn ? btn.innerHTML : 'Guardar Orden';
++    if (btn) {
++        btn.disabled = true;
++        btn.innerHTML = '<i data-lucide="loader" style="width:14px; margin-right:4px;"></i> Guardando...';
++        lucide.createIcons();
++    }
++
+     const form = document.getElementById('new-order-form');
+     if (!form.checkValidity()) {
+         document.getElementById('hidden-submit').click();
++        if (btn) {
++            btn.disabled = false;
++            btn.innerHTML = originalText;
++            lucide.createIcons();
++        }
+         return;
+     }
+ 
+@@ -1308,6 +1320,12 @@ async function submitOrder() {
+     } catch (e) {
+         console.error(e);
+         alert("Error de red al guardar la orden.");
++    } finally {
++        const btn = document.querySelector('button[onclick="submitOrder()"]');
++        if (btn) {
++            btn.disabled = false;
++            btn.innerHTML = 'Guardar Orden';
++        }
+     }
+ }
+ 
+@@ -2405,3 +2423,513 @@ function initDragAndDrop() {
+         });
+     });
+ }
++
++// ==========================================
++// INTELIGENCIA ARTIFICIAL M├ôDULO (GEMINI)
++// ==========================================
++
++let GEMINI_API_KEY = localStorage.getItem('geminiApiKey') || '';
++
++// Call this on boot to set the input if it exists
++document.addEventListener('DOMContentLoaded', () => {
++    const keyInput = document.getElementById('gemini-api-key');
++    if (keyInput && GEMINI_API_KEY) {
++        keyInput.value = GEMINI_API_KEY;
++    }
++});
++
++            iconIcon.setAttribute('data-lucide', 'sun');
++        }
++    }
++    
++    // Complete order modal cost calculator inputs listeners
++    const completeHourlyRateField = document.getElementById('complete-hourly-rate');
++    const completeLaborHoursField = document.getElementById('complete-labor-hours');
++    const completeMaterialCostField = document.getElementById('complete-material-cost');
++
++    if (completeHourlyRateField) completeHourlyRateField.addEventListener('input', saveCompleteCostSettings);
++    if (completeLaborHoursField) completeLaborHoursField.addEventListener('input', calculateCompleteCost);
++    if (completeMaterialCostField) completeMaterialCostField.addEventListener('input', calculateCompleteCost);
++
++    // Configura actualizaci├│n constante cada 10 segundos
++    setInterval(pollData, 10000); 
++});
++
++// --- Kanban Board System ---
++let isKanbanView = false;
++
++function toggleKanbanView() {
++    isKanbanView = !isKanbanView;
++    const tv = document.getElementById('orders-table-view');
++    const kv = document.getElementById('orders-kanban-view');
++    const btnText = document.getElementById('kanban-toggle-text');
++    
++    if (!tv || !kv) return;
++
++    if (isKanbanView) {
++        tv.style.display = 'none';
++        kv.style.display = 'flex';
++        btnText.textContent = 'Vista Lista';
++        renderKanban();
++    } else {
++        tv.style.display = 'block';
++        kv.style.display = 'none';
++        btnText.textContent = 'Vista Kanban';
++        renderAllOrders();
++    }
++}
++
++function renderKanban() {
++    const kv = document.getElementById('orders-kanban-view');
++    if (!kv) return;
++    
++    kv.innerHTML = '';
++    
++    const textSearch = filterText.value.toLowerCase() || globalSearch.value.toLowerCase();
++    
++    const filtered = globalOrders.filter(order => {
++        const matchText = order.client.toLowerCase().includes(textSearch) ||
++            order.object.toLowerCase().includes(textSearch) ||
++            order.id.toLowerCase().includes(textSearch);
++        return matchText;
++    });
++
++    orderStatuses.forEach(status => {
++        const sc = statusConfig[status];
++        const statusOrders = filtered.filter(o => o.status === status);
++        
++        let headerColor = 'var(--border-color)';
++        if (status === 'recibido') headerColor = 'var(--primary-color)';
++        if (status === 'presupuestado') headerColor = 'var(--text-secondary)';
++        if (status === 'proceso') headerColor = 'var(--warning-color)';
++        if (status === 'materiales') headerColor = 'var(--danger-color)';
++        if (status === 'listo') headerColor = 'var(--secondary-color)';
++        if (status === 'entregado') headerColor = 'var(--success-color, #10B981)';
++
++        const col = document.createElement('div');
++        col.className = 'kanban-column';
++        
++        col.innerHTML = `
++            <div class="kanban-column-header" style="border-bottom-color: ${headerColor}">
++                <span>${sc.label}</span>
++                <span class="kanban-card-count">${statusOrders.length}</span>
++            </div>
++            <div class="kanban-column-body" data-status="${status}">
++                ${statusOrders.map(o => {
++                    const debt = (Number(o.budget) || 0) - (Number(o.advance) || 0);
++                    const debtBadge = debt > 0 ? `<span style="font-size:0.7rem; background:var(--danger-light); color:var(--danger-color); padding: 0.15rem 0.4rem; border-radius:12px; font-weight:600; line-height:1;">Debe $${debt.toLocaleString('es-AR')}</span>` : '';
++                    return `
++                    <div class="kanban-card" draggable="true" data-id="${o.id}">
++                        <div class="kanban-card-title" style="align-items:center;">
++                            <span style="color:var(--primary-color)">${o.id}</span>
++                            ${debtBadge}
++                            <span style="color: ${o.wppStatus === 'notified' ? 'var(--secondary-color)' : 'var(--text-secondary)'}" title="WhatsApp"><i data-lucide="${o.wppStatus === 'notified' ? 'check-check' : 'send'}" style="width:14px"></i></span>
++                        </div>
++                        <div class="kanban-card-subtitle">${o.client} ΓÇó ${o.contact}</div>
++                        <div class="kanban-card-desc"><strong>${o.object}</strong></div>
++                        <div class="kanban-card-footer">
++                            <span style="color:var(--text-secondary); display:flex; align-items:center; gap:0.25rem"><i data-lucide="calendar" style="width:14px"></i> ${o.date}</span>
++                            <div class="actions-cell">
++                                ${generateActionButtons(o.id, true)}
++                            </div>
++                        </div>
++                    </div>
++                `}).join('')}
++            </div>
++        `;
++        kv.appendChild(col);
++    });
++    
++    lucide.createIcons();
++    initDragAndDrop();
++}
++
++function initDragAndDrop() {
++    const cards = document.querySelectorAll('.kanban-card');
++    const cols = document.querySelectorAll('.kanban-column-body');
++    
++    cards.forEach(card => {
++        card.addEventListener('dragstart', (e) => {
++            card.classList.add('dragging');
++            card.dataset.dragId = card.getAttribute('data-id');
++        });
++        
++        card.addEventListener('dragend', () => {
++            card.classList.remove('dragging');
++        });
++    });
++    
++    cols.forEach(col => {
++        col.addEventListener('dragover', (e) => {
++            e.preventDefault();
++            const draggingCard = document.querySelector('.dragging');
++            if (draggingCard) {
++                col.classList.add('drag-over');
++            }
++        });
++        
++        col.addEventListener('dragleave', () => {
++            col.classList.remove('drag-over');
++        });
++        
++        col.addEventListener('drop', async (e) => {
++            e.preventDefault();
++            col.classList.remove('drag-over');
++            
++            const draggingCard = document.querySelector('.dragging');
++            if (!draggingCard) return;
++            
++            const orderId = draggingCard.getAttribute('data-id');
++            const newStatus = col.getAttribute('data-status');
++            
++            const order = globalOrders.find(o => o.id === orderId);
++            if (order && order.status !== newStatus) {
++                if (newStatus === 'listo') {
++                    openCompleteOrderModal(orderId);
++                    return;
++                }
++                
++                order.status = newStatus;
++                renderKanban(); 
++                updateAllViews();
++                
++                try {
++                    await dbClient
++                        .from('orders')
++                        .update({ status: newStatus })
++                        .eq('id', order.dbId)
++                        .eq('tenant_id', DEFAULT_TENANT_ID);
++                        
++                    const uid = window.globalUsers && window.globalUsers.length ? window.globalUsers[0].id : null;
++                    await dbClient.from('audit_log').insert([{
++                        tenant_id: DEFAULT_TENANT_ID,
++                        action: 'UPDATE',
++                        table_name: 'orders',
++                        record_id: order.dbId,
++                        new_data: { status: newStatus },
++                        user_id: uid
++                    }]);
++                    
++                    showToast('Estado actualizado a ' + statusConfig[newStatus].label);
++                } catch (err) {
++                    console.error(err);
++                }
++            }
++        });
++    });
++}
++
++// ==========================================
++// INTELIGENCIA ARTIFICIAL M├ôDULO (GEMINI)
++// ==========================================
++
++let GEMINI_API_KEY = localStorage.getItem('geminiApiKey') || '';
++
++// Call this on boot to set the input if it exists
++document.addEventListener('DOMContentLoaded', () => {
++    const keyInput = document.getElementById('gemini-api-key');
++    if (keyInput && GEMINI_API_KEY) {
++        keyInput.value = GEMINI_API_KEY;
++    }
++});
++
++function saveGeminiKey() {
++    const val = document.getElementById('gemini-api-key').value.trim();
++    if (val) {
++        GEMINI_API_KEY = val;
++        localStorage.setItem('geminiApiKey', val);
++        showToast("Clave de API guardada exitosamente.", "success");
++    } else {
++        alert("Por favor, ingresa una clave v├ílida de Gemini.");
++    }
++}
++
++async function callGemini(prompt) {
++    if (!GEMINI_API_KEY) {
++        throw new Error("API_KEY_MISSING");
++    }
++
++    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
++    
++    // Mostramos un Toast de "procesando"
++    const isEditing = document.getElementById('toast-container');
++    if (isEditing) showToast("≡ƒºá IA Procesando...", "success");
++
++    const payload = {
++        contents: [{ parts: [{ text: prompt }] }],
++        generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
++    };
++
++    const response = await fetch(url, {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(payload)
++    });
++
++    if (!response.ok) {
++        let errorMsg = "HTTP_ERROR_" + response.status;
++        try {
++            const errData = await response.json();
++            if (errData && errData.error && errData.error.message) {
++                errorMsg = errData.error.message + " (Code: " + response.status + ")";
++            }
++        } catch(ign) {}
++        throw new Error(errorMsg);
++    }
++
++    const data = await response.json();
++    if (data && data.candidates && data.candidates.length > 0) {
++        return data.candidates[0].content.parts[0].text;
++    }
++    return "";
++}
++
++async function magicWriteService(inputId) {
++    const el = document.getElementById(inputId);
++    if (!el) return;
++    
++    const draftText = el.value.trim();
++    if (!draftText) {
++        alert("Primero escribe unas palabras b├ísicas de la falla o arreglo que debe hacerle para que la IA sepa qu├⌐ mejorar.");
++        return;
++    }
++
++    const prompt = `Act├║a como un t├⌐cnico profesional experto en servicios de reparaci├│n y restauraci├│n de un taller. Tu objetivo es convertir las siguientes notas r├ípidas en una descripci├│n de diagn├│stico de servicio profunda, elegante, sumamente profesional y detallada, orientada a que el cliente se sienta seguro del gran trabajo t├⌐cnico que se le realizar├í al objeto. 
++No repitas un saludo. Solamente produce la descripci├│n t├⌐cnica mejorada y bien redactada. Redacta de corrido (un p├írrafo robusto de un m├íximo de 5 renglones). 
++Aqu├¡ est├ín las notas crudas del t├⌐cnico: "${draftText}"`;
++
++    const originalBtnHTML = el.previousElementSibling ? el.previousElementSibling.querySelector('button').innerHTML : 'Mejorar con IA';
++    if(el.previousElementSibling) el.previousElementSibling.querySelector('button').innerHTML = 'ΓÅ│ Generando...';
++    
++    try {
++        const enhancedText = await callGemini(prompt);
++        if (enhancedText) {
++            el.value = enhancedText.trim().replace(/^"/, '').replace(/"$/, '');
++            showToast("Γ£¿ Descripci├│n mejorada por IA.");
++        }
++    } catch (e) {
++        if (e.message === "API_KEY_MISSING") {
++            alert("No tienes configurada la Clave de Gemini IA. Ve a 'Configuraci├│n' -> 'Inteligencia Artificial' para vincular tu cuenta gratuita.");
++        } else {
++            console.error("Gemini Error:", e);
++            alert("Hubo un error contactando a la IA.\nDetalle del error: " + e.message);
++        }
++    } finally {
++        if(el.previousElementSibling) el.previousElementSibling.querySelector('button').innerHTML = originalBtnHTML;
++    }
++}
++
++async function generateSmartWhatsapp() {
++    if (!pendingViewOrderId) return;
++    const order = globalOrders.find(o => o.id === pendingViewOrderId);
++    if (!order) return;
++
++    // Calcular deuda
++    const debt = (Number(order.budget) || 0) - (Number(order.advance) || 0);
++    const advanceStr = (Number(order.advance) || 0) > 0 ? `Ya dejaron una se├▒a de $${order.advance}. ` : '';
++    const budgetStr = `El costo total fue de $${order.budget}. `;
++    const debtStr = debt > 0 ? `El cliente todav├¡a te debe de pagar un saldo pendiente de $${debt}.` : `La cuenta ya est├í saldada (Saldo 0).`;
++
++    const statusMapStr = statusConfig[order.status] ? statusConfig[order.status].label : order.status;
++
++    const basePrompt = `Eres un asistente secretario de un taller de reparaciones. Redacta un solo mensaje de WhatsApp CORTO y sumamente amigable para envi├írselo directamente al cliente. 
++    Datos del entorno: 
++    - Nombre del Cliente: ${order.client}
++    - Objeto en reparaci├│n/restauraci├│n: ${order.object}
++    - Estado actual de su objeto en el taller: ${statusMapStr}.
++    - Dinero: ${budgetStr} ${advanceStr} ${debtStr}
++
++    Si el estado es "Listo p/ Entrega", dile con emoci├│n que su equipo ya est├í listo y puede pasar a buscarlo, y recu├⌐rdale con elegancia el saldo que debe abonar (si debe).
++    Si el estado es "En Proceso" o "Materiales", av├¡sale amablemente los progresos.
++    Si el saldo pendiente es 0, no hables de dinero a menos que sea necesario.
++    Firma al final simplemente con "Saludos desde el Taller". Usa apropiadamente un par de emojis relacionados (no m├ís de dos).
++    NO CREES variables tipo [Tu nombre]. Asume que hablas en nombre del taller.`;
++    
++    try {
++        const aiMessage = await callGemini(basePrompt);
++        if (aiMessage) {
++            const finalMsg = aiMessage.trim();
++            // Abrir Whatsapp
++            const phoneStr = order.contact.replace(/[\s\+\-\(\)]/g, ""); // limpiar
++            const wpUrl = `https://wa.me/${phoneStr}?text=${encodeURIComponent(finalMsg)}`;
++            window.open(wpUrl, '_blank');
++        }
++    } catch (e) {
++        if (e.message === "API_KEY_MISSING") {
++            alert("No tienes configurada la Clave de Gemini IA. Ve a 'Configuraci├│n' -> 'Inteligencia Artificial' para vincularla gratis.");
++        } else {
++            console.error(e);
++            alert("Fallo en IA. ┬┐Est├í correcta la API Key? \nDetalle: " + e.message);
++        }
++    }
++}
++
++async function generateFinancialInsights() {
++    const filtered = getFilteredOrders();
++    if (filtered.length === 0) {
++        alert("No hay ├│rdenes en este per├¡odo para analizar.");
++        return;
++    }
++
++    const container = document.getElementById('ai-insights-container');
++    const content = document.getElementById('ai-insights-content');
++    const btn = document.getElementById('btn-analista-ia');
++
++    if (container && content) {
++        container.style.display = 'block';
++        content.innerHTML = '<span style="color:var(--text-secondary)">ΓÅ│ Analizando tu base de datos y m├⌐tricas financieras...</span>';
++    }
++    if (btn) {
++        btn.disabled = true;
++        btn.innerHTML = '<i data-lucide="loader" style="width:14px; margin-right:4px;"></i> Consultando...';
++        lucide.createIcons();
++    }
++
++    // Compact the data to save tokens
++    const simplifiedData = filtered.map(o => ({
++        budget: o.budget,
++        advance: o.advance,
++        status: o.status,
++        item: o.object
++    }));
++
++    const marginData = calculateMarginMetrics();
++    const totalRevenue = filtered.reduce((sum, o) => sum + (Number(o.budget) || 0), 0);
++    const totalAdvance = filtered.reduce((sum, o) => sum + (Number(o.advance) || 0), 0);
++    
++    // Limits the raw array to avoiding passing max tokens if they have thousands of orders.
++    const subsetData = simplifiedData.slice(0, 50);
++
++    const metricsStr = `Total ├ôrdenes: ${filtered.length}. Ingresos brutos esperados: $${totalRevenue}. Dinero cobrado en caja (se├▒as): $${totalAdvance}. Saldo deudor en la calle: $${totalRevenue - totalAdvance}. M├írgenes promedios calculados: ${marginData.percentage.toFixed(1)}%. Muestra de los ├║ltimos ${subsetData.length} trabajos: ${JSON.stringify(subsetData)}`;
++
++    const prompt = `Act├║a como el Director Estrat├⌐gico de un taller de reparaciones. Analizar├ís los datos crudos del ├║ltimo per├¡odo. 
++    DATOS OPERATIVOS DEL MES DE TU NEGOCIO:
++    ${metricsStr}
++    
++    Tu tarea: Br├¡ndale al due├▒o del taller EXACTAMENTE 3 conclusiones de negocio t├ícticas extremadamente valiosas (Insights) basadas en los n├║meros que ves. 
++    Ejemplos de an├ílisis esperados: Si ves mucha deuda, acons├⌐jale qu├⌐ flujo ajustar en los retiros. Si ves qu├⌐ "item" se repara mucho, sugiere promocionarlo. Si los m├írgenes son bajos, d├íselo a notar.
++    Formato: Usa 3 "bullet points" con emojis descriptivos. Omit├¡ saludos. S├⌐ directo y valioso comercialmente hablando. Us├í negritas.`;
++
++    try {
++        const responseText = await callGemini(prompt);
++        if (content) {
++            // Reemplaza markdown simple de negritas y saltos
++            let formattedText = responseText.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
++            formattedText = formattedText.replace(/\\n/g, '<br>');
++            content.innerHTML = formattedText;
++        }
++    } catch (e) {
++        if (e.message === "API_KEY_MISSING") {
++            if (content) content.innerHTML = "<span style='color:var(--danger-color)'>≡ƒÜ½ Debes configurar tu Clave de API de Gemini en la pantalla de Configuraci├│n.</span>";
++        } else {
++            console.error(e);
++            if (content) content.innerHTML = "<span style='color:var(--danger-color)'>Hubo un fallo en la IA. Verifica tu conexi├│n o tu API Key.</span>";
++        }
++    } finally {
++        if (btn) {
++            btn.disabled = false;
++            btn.innerHTML = '<i data-lucide="sparkles" style="width:14px; margin-right:4px;"></i> Analista Financiero (IA)';
++            lucide.createIcons();
++        }
++    }
++}
++
++// ==========================================
++// CHARTS (Chart.js)
++// ==========================================
++
++let myRevenueChart, myStatusChart, myClientsChart;
++
++function renderCanvasCharts(filtered) {
++    const revenueCtx = document.getElementById('revenueChart');
++    const statusCtx = document.getElementById('statusChart');
++    const clientsCtx = document.getElementById('topClientsChart');
++    
++    if (!revenueCtx || !statusCtx || !clientsCtx) return;
++
++    if (myRevenueChart) myRevenueChart.destroy();
++    if (myStatusChart) myStatusChart.destroy();
++    if (myClientsChart) myClientsChart.destroy();
++
++    // 1. Line Chart: Ingresos en el tiempo
++    const revDataMap = {};
++    filtered.forEach(o => {
++        const d = o.date;
++        if(!revDataMap[d]) revDataMap[d] = 0;
++        revDataMap[d] += Number(o.budget) || 0;
++    });
++    const revLabels = Object.keys(revDataMap).sort();
++    const revData = revLabels.map(l => revDataMap[l]);
++
++    myRevenueChart = new Chart(revenueCtx, {
++        type: 'line',
++        data: {
++            labels: revLabels.length ? revLabels : ['Sin Datos'],
++            datasets: [{
++                label: 'Ingresos Acumulados ($)',
++                data: revLabels.length ? revData : [0],
++                borderColor: '#4F46E5',
++                backgroundColor: 'rgba(79, 70, 229, 0.15)',
++                fill: true,
++                tension: 0.3,
++                borderWidth: 2
++            }]
++        },
++        options: { 
++            responsive: true, 
++            maintainAspectRatio: false,
++            plugins: { legend: { display: false } },
++            scales: { y: { beginAtZero: true } }
++        }
++    });
++
++    // 2. Doughnut Chart: Estados
++    const statData = orderStatuses.map(s => filtered.filter(o => o.status === s).length);
++    const statLabels = orderStatuses.map(s => statusConfig[s]?.label || s);
++    
++    myStatusChart = new Chart(statusCtx, {
++        type: 'doughnut',
++        data: {
++            labels: statLabels,
++            datasets: [{
++                data: statData,
++                backgroundColor: ['#64748B', '#94A3B8', '#F59E0B', '#EF4444', '#3B82F6', '#10B981'],
++                borderWidth: 0
++            }]
++        },
++        options: { 
++            responsive: true, 
++            maintainAspectRatio: false,
++            plugins: {
++                legend: { position: 'right', labels: { boxWidth: 12 } }
++            }
++        }
++    });
++
++    // 3. Bar Chart: Top Clientes The Best!
++    const clientMap = {};
++    filtered.forEach(o => {
++        if(!clientMap[o.client]) clientMap[o.client] = 0;
++        clientMap[o.client] += Number(o.budget) || 0;
++    });
++    const sortedClients = Object.entries(clientMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
++    
++    myClientsChart = new Chart(clientsCtx, {
++        type: 'bar',
++        data: {
++            labels: sortedClients.length ? sortedClients.map(c => c[0]) : ['N/A'],
++            datasets: [{
++                label: 'Volumen Monetario',
++                data: sortedClients.length ? sortedClients.map(c => c[1]) : [0],
++                backgroundColor: '#10B981',
++                borderRadius: 4
++            }]
++        },
++        options: { 
++            responsive: true, 
++            maintainAspectRatio: false,
++            plugins: { legend: { display: false } },
++            scales: { y: { beginAtZero: true } }
++        }
++    });
++}
