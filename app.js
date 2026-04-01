@@ -1470,6 +1470,7 @@ function updateAllViews() {
     renderKPIs();
     renderRecentOrders();
     renderAllOrders();
+    if (typeof isKanbanView !== 'undefined' && isKanbanView) renderKanban();
     renderCustomers();
     renderReports();
     renderAgenda();
@@ -2219,3 +2220,163 @@ document.addEventListener('DOMContentLoaded', () => {
     // Configura actualización constante cada 10 segundos
     setInterval(pollData, 10000); 
 });
+
+// --- Kanban Board System ---
+let isKanbanView = false;
+
+function toggleKanbanView() {
+    isKanbanView = !isKanbanView;
+    const tv = document.getElementById('orders-table-view');
+    const kv = document.getElementById('orders-kanban-view');
+    const btnText = document.getElementById('kanban-toggle-text');
+    
+    if (!tv || !kv) return;
+
+    if (isKanbanView) {
+        tv.style.display = 'none';
+        kv.style.display = 'flex';
+        btnText.textContent = 'Vista Lista';
+        renderKanban();
+    } else {
+        tv.style.display = 'block';
+        kv.style.display = 'none';
+        btnText.textContent = 'Vista Kanban';
+        renderAllOrders();
+    }
+}
+
+function renderKanban() {
+    const kv = document.getElementById('orders-kanban-view');
+    if (!kv) return;
+    
+    kv.innerHTML = '';
+    
+    const textSearch = filterText.value.toLowerCase() || globalSearch.value.toLowerCase();
+    
+    const filtered = globalOrders.filter(order => {
+        const matchText = order.client.toLowerCase().includes(textSearch) ||
+            order.object.toLowerCase().includes(textSearch) ||
+            order.id.toLowerCase().includes(textSearch);
+        return matchText;
+    });
+
+    orderStatuses.forEach(status => {
+        const sc = statusConfig[status];
+        const statusOrders = filtered.filter(o => o.status === status);
+        
+        let headerColor = 'var(--border-color)';
+        if (status === 'recibido') headerColor = 'var(--primary-color)';
+        if (status === 'presupuestado') headerColor = 'var(--text-secondary)';
+        if (status === 'proceso') headerColor = 'var(--warning-color)';
+        if (status === 'materiales') headerColor = 'var(--danger-color)';
+        if (status === 'listo') headerColor = 'var(--secondary-color)';
+        if (status === 'entregado') headerColor = 'var(--success-color, #10B981)';
+
+        const col = document.createElement('div');
+        col.className = 'kanban-column';
+        
+        col.innerHTML = `
+            <div class="kanban-column-header" style="border-bottom-color: ${headerColor}">
+                <span>${sc.label}</span>
+                <span class="kanban-card-count">${statusOrders.length}</span>
+            </div>
+            <div class="kanban-column-body" data-status="${status}">
+                ${statusOrders.map(o => `
+                    <div class="kanban-card" draggable="true" data-id="${o.id}">
+                        <div class="kanban-card-title">
+                            <span style="color:var(--primary-color)">${o.id}</span>
+                            <span style="color: ${o.wppStatus === 'notified' ? 'var(--secondary-color)' : 'var(--text-secondary)'}" title="WhatsApp"><i data-lucide="${o.wppStatus === 'notified' ? 'check-check' : 'send'}" style="width:14px"></i></span>
+                        </div>
+                        <div class="kanban-card-subtitle">${o.client} • ${o.contact}</div>
+                        <div class="kanban-card-desc"><strong>${o.object}</strong></div>
+                        <div class="kanban-card-footer">
+                            <span style="color:var(--text-secondary); display:flex; align-items:center; gap:0.25rem"><i data-lucide="calendar" style="width:14px"></i> ${o.date}</span>
+                            <div class="actions-cell">
+                                ${generateActionButtons(o.id, true)}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        kv.appendChild(col);
+    });
+    
+    lucide.createIcons();
+    initDragAndDrop();
+}
+
+function initDragAndDrop() {
+    const cards = document.querySelectorAll('.kanban-card');
+    const cols = document.querySelectorAll('.kanban-column-body');
+    
+    cards.forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+            card.classList.add('dragging');
+            card.dataset.dragId = card.getAttribute('data-id');
+        });
+        
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+        });
+    });
+    
+    cols.forEach(col => {
+        col.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const draggingCard = document.querySelector('.dragging');
+            if (draggingCard) {
+                col.classList.add('drag-over');
+            }
+        });
+        
+        col.addEventListener('dragleave', () => {
+            col.classList.remove('drag-over');
+        });
+        
+        col.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            col.classList.remove('drag-over');
+            
+            const draggingCard = document.querySelector('.dragging');
+            if (!draggingCard) return;
+            
+            const orderId = draggingCard.getAttribute('data-id');
+            const newStatus = col.getAttribute('data-status');
+            
+            const order = globalOrders.find(o => o.id === orderId);
+            if (order && order.status !== newStatus) {
+                if (newStatus === 'listo') {
+                    openCompleteOrderModal(orderId);
+                    return;
+                }
+                
+                order.status = newStatus;
+                renderKanban(); 
+                updateAllViews();
+                
+                try {
+                    await dbClient
+                        .from('orders')
+                        .update({ status: newStatus })
+                        .eq('id', order.dbId)
+                        .eq('tenant_id', DEFAULT_TENANT_ID);
+                        
+                    const uid = window.globalUsers && window.globalUsers.length ? window.globalUsers[0].id : null;
+                    await dbClient.from('audit_log').insert([{
+                        tenant_id: DEFAULT_TENANT_ID,
+                        action: 'UPDATE',
+                        table_name: 'orders',
+                        record_id: order.dbId,
+                        new_data: { status: newStatus },
+                        user_id: uid
+                    }]);
+                    
+                    showToast('Estado actualizado a ' + statusConfig[newStatus].label);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        });
+    });
+}

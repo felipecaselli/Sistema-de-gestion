@@ -254,12 +254,18 @@
                         <h1>Gestión de Órdenes</h1>
                         <p>Administra y actualiza el estado de las órdenes de trabajo.</p>
                     </div>
-                    <button class="primary-btn" onclick="openOrderModal()">
-                        <i data-lucide="plus"></i>
-                        Nueva Orden
-                    </button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn-secondary" id="btn-toggle-kanban" onclick="toggleKanbanView()" style="display: flex; align-items: center; gap: 0.5rem; background: var(--surface-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <i data-lucide="layout" style="width: 18px"></i> 
+                            <span id="kanban-toggle-text">Vista Kanban</span>
+                        </button>
+                        <button class="primary-btn" onclick="openOrderModal()">
+                            <i data-lucide="plus"></i>
+                            Nueva Orden
+                        </button>
+                    </div>
                 </div>
-                <div class="card">
+                <div class="card" id="orders-table-view">
                     <div class="card-header" style="display:flex; gap:1rem; flex-wrap:wrap">
                         <input type="text" id="filter-text" class="form-control"
                             placeholder="Filtrar por objeto o cliente..." style="width:250px;">
@@ -291,6 +297,10 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+                <!-- Kanban view container -->
+                <div class="kanban-board" id="orders-kanban-view" style="display: none;">
+                    <!-- Columns go here -->
                 </div>
             </div>
 
