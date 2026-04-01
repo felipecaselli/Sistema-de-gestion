@@ -510,6 +510,7 @@ async function initData() {
                     object: o.object_name,
                     service: o.service_details,
                     budget: o.budget || 0,
+                    advance: Number(o.advance_payment) || 0,
                     date: o.estimated_date || o.created_at.split('T')[0],
                     createdAt: o.created_at,
                     status: o.status,
@@ -554,6 +555,7 @@ async function pollData() {
                     object: o.object_name,
                     service: o.service_details,
                     budget: o.budget || 0,
+                    advance: Number(o.advance_payment) || 0,
                     date: o.estimated_date || o.created_at.split('T')[0],
                     createdAt: o.created_at,
                     status: o.status,
@@ -997,6 +999,8 @@ function openEditOrderModal(orderId) {
     }
     document.getElementById('edit-form-service').value = serviceText;
     document.getElementById('edit-form-budget').value = Number(order.budget || 0).toFixed(2);
+    const advanceInput = document.getElementById('edit-form-advance');
+    if (advanceInput) advanceInput.value = Number(order.advance || 0).toFixed(2);
     document.getElementById('edit-form-date').value = order.date;
 
     document.getElementById('edit-order-modal').classList.add('open');
@@ -1026,6 +1030,7 @@ async function submitEditOrder() {
         object_name: document.getElementById('edit-form-object').value,
         service_details: document.getElementById('edit-form-service').value,
         budget: document.getElementById('edit-form-budget').value,
+        advance_payment: document.getElementById('edit-form-advance') ? document.getElementById('edit-form-advance').value : 0,
         estimated_date: document.getElementById('edit-form-date').value
     };
 
@@ -1070,6 +1075,8 @@ function openViewOrderModal(orderId) {
     document.getElementById('view-client-name').textContent = order.client;
     document.getElementById('view-object-name').textContent = order.object;
     document.getElementById('view-budget').textContent = Number(order.budget || 0).toLocaleString('es-AR');
+    document.getElementById('view-advance').textContent = Number(order.advance || 0).toLocaleString('es-AR');
+    document.getElementById('view-debt').textContent = Math.max(0, (Number(order.budget || 0) - Number(order.advance || 0))).toLocaleString('es-AR');
     document.getElementById('view-status').textContent = statusConfig[order.status]?.label || order.status;
     document.getElementById('view-date').textContent = order.formattedDate || order.date;
 
@@ -1274,6 +1281,7 @@ async function submitOrder() {
             object_name: document.getElementById('form-object').value,
             service_details: finalServiceDetails,
             budget: document.getElementById('form-budget').value,
+            advance_payment: document.getElementById('form-advance') ? document.getElementById('form-advance').value : 0,
             estimated_date: document.getElementById('form-date').value,
             status: "recibido",
             wpp_status: "pending",
@@ -1652,6 +1660,13 @@ function updateReports() {
     const forecast = calculateForecast();
     const filtered = getFilteredOrders();
     const totalRevenue = filtered.reduce((sum, o) => sum + (Number(o.budget) || 0), 0);
+    
+    // Financial tracking
+    const totalAdvance = filtered.reduce((sum, o) => sum + (Number(o.advance) || 0), 0);
+    const totalPending = filtered.reduce((sum, o) => {
+        const debt = (Number(o.budget) || 0) - (Number(o.advance) || 0);
+        return sum + (debt > 0 ? debt : 0);
+    }, 0);
 
     // Actualizar KPIs
     document.getElementById('kpi-ingresos').textContent = `$${totalRevenue.toLocaleString('es-AR')}`;
@@ -1661,6 +1676,12 @@ function updateReports() {
         '$0';
     document.getElementById('kpi-tiempo-promedio').textContent = `${closureTime} días`;
     document.getElementById('kpi-forecast').textContent = `$${forecast.toLocaleString('es-AR')}`;
+    
+    const kpiSenas = document.getElementById('kpi-senas');
+    if (kpiSenas) kpiSenas.textContent = `$${totalAdvance.toLocaleString('es-AR')}`;
+    
+    const kpiSaldos = document.getElementById('kpi-saldos');
+    if (kpiSaldos) kpiSaldos.textContent = `$${totalPending.toLocaleString('es-AR')}`;
 
     // Renderizar métricos
     renderPipelineMetrics();
@@ -2281,10 +2302,14 @@ function renderKanban() {
                 <span class="kanban-card-count">${statusOrders.length}</span>
             </div>
             <div class="kanban-column-body" data-status="${status}">
-                ${statusOrders.map(o => `
+                ${statusOrders.map(o => {
+                    const debt = (Number(o.budget) || 0) - (Number(o.advance) || 0);
+                    const debtBadge = debt > 0 ? `<span style="font-size:0.7rem; background:var(--danger-light); color:var(--danger-color); padding: 0.15rem 0.4rem; border-radius:12px; font-weight:600; line-height:1;">Debe $${debt.toLocaleString('es-AR')}</span>` : '';
+                    return `
                     <div class="kanban-card" draggable="true" data-id="${o.id}">
-                        <div class="kanban-card-title">
+                        <div class="kanban-card-title" style="align-items:center;">
                             <span style="color:var(--primary-color)">${o.id}</span>
+                            ${debtBadge}
                             <span style="color: ${o.wppStatus === 'notified' ? 'var(--secondary-color)' : 'var(--text-secondary)'}" title="WhatsApp"><i data-lucide="${o.wppStatus === 'notified' ? 'check-check' : 'send'}" style="width:14px"></i></span>
                         </div>
                         <div class="kanban-card-subtitle">${o.client} • ${o.contact}</div>
@@ -2296,7 +2321,7 @@ function renderKanban() {
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>
         `;
         kv.appendChild(col);

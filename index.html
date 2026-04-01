@@ -425,6 +425,20 @@
                         </div>
                         <div class="stat-value" id="kpi-forecast">$0</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Ingresos (Señas)</span>
+                            <div class="stat-icon green"><i data-lucide="wallet"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-senas">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span>Saldos a Cobrar</span>
+                            <div class="stat-icon red"><i data-lucide="hand-coins"></i></div>
+                        </div>
+                        <div class="stat-value" id="kpi-saldos">$0</div>
+                    </div>
                 </div>
 
                 <div class="charts-grid">
@@ -572,9 +586,13 @@
                         </div>
                         <div class="form-group">
                             <label>Presupuesto Estimado ($)</label>
-                            <input type="number" id="form-budget" class="form-control" placeholder="0.00">
+                            <input type="number" id="form-budget" class="form-control" placeholder="0.00" min="0">
                         </div>
                         <div class="form-group">
+                            <label>Seña / Adelanto ($)</label>
+                            <input type="number" id="form-advance" class="form-control" placeholder="0.00" min="0">
+                        </div>
+                        <div class="form-group full">
                             <label>Fecha Est. Entrega *</label>
                             <input type="date" id="form-date" class="form-control" required>
                         </div>
@@ -671,9 +689,13 @@
                         </div>
                         <div class="form-group">
                             <label>Presupuesto Estimado ($)</label>
-                            <input type="number" id="edit-form-budget" class="form-control" placeholder="0.00">
+                            <input type="number" id="edit-form-budget" class="form-control" placeholder="0.00" min="0">
                         </div>
                         <div class="form-group">
+                            <label>Seña / Adelanto ($)</label>
+                            <input type="number" id="edit-form-advance" class="form-control" placeholder="0.00" min="0">
+                        </div>
+                        <div class="form-group full">
                             <label>Fecha Est. Entrega *</label>
                             <input type="date" id="edit-form-date" class="form-control" required>
                         </div>
@@ -702,6 +724,8 @@
                         <p style="margin: 0.5rem 0;"><strong>Cliente:</strong> <span id="view-client-name">-</span></p>
                         <p style="margin: 0.5rem 0;"><strong>Objeto:</strong> <span id="view-object-name">-</span></p>
                         <p style="margin: 0.5rem 0;"><strong>Presupuesto:</strong> $<span id="view-budget">0</span></p>
+                        <p style="margin: 0.5rem 0; color: var(--secondary-color);"><strong>Seña Abonada:</strong> $<span id="view-advance">0</span></p>
+                        <p style="margin: 0.5rem 0; color: var(--danger-color); font-weight: 600;"><strong>Saldo a Cobrar:</strong> $<span id="view-debt">0</span></p>
                         <p style="margin: 0.5rem 0;"><strong>Estado:</strong> <span id="view-status">-</span></p>
                         <p style="margin: 0.5rem 0;"><strong>Fecha Entrega:</strong> <span id="view-date">-</span></p>
                         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
