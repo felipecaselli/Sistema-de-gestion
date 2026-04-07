@@ -1,0 +1,28 @@
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDark);
+    
+    // Update button UI
+    const textSpan = document.getElementById('dark-mode-text');
+    const iconIcon = document.getElementById('dark-mode-icon');
+    if (textSpan && iconIcon) {
+        textSpan.textContent = isDark ? 'Desactivar Modo Oscuro' : 'Activar Modo Oscuro';
+        iconIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+        lucide.createIcons();
+    }
+}
+
+// --- Auth UI ---
+function closeLoginModal() {
+    if(!currentUser) {
+        alert("Debes ingresar un nombre para continuar.");
+        return;
+    }
+    document.getElementById('login-modal').classList.remove('open');
+}
+
+function submitLogin() {
+    const name = document.getElementById('form-username').value.trim();
+    if (!name) {
+        document.getElementById('hidden-login-submit').cl
