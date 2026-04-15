@@ -1,0 +1,20 @@
+let GEMINI_API_KEY = localStorage.getItem('geminiApiKey') || '';
+
+// Call this on boot to set the input if it exists
+document.addEventListener('DOMContentLoaded', () => {
+    const keyInput = document.getElementById('gemini-api-key');
+    if (keyInput && GEMINI_API_KEY) {
+        keyInput.value = GEMINI_API_KEY;
+    }
+});
+
+            iconIcon.setAttribute('data-lucide', 'sun');
+        }
+    }
+    
+    // Complete order modal cost calculator inputs listeners
+    const completeHourlyRateField = document.getElementById('complete-hourly-rate');
+    const completeLaborHoursField = document.getElementById('complete-labor-hours');
+    const completeMaterialCostField = document.getElementById('complete-material-cost');
+
+    if (completeHourlyRateField) completeHourlyRateField.addEventListener('input', saveCompleteCostSettings);
