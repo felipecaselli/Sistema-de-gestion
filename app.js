@@ -2933,3 +2933,46 @@ function renderCanvasCharts(filtered) {
         }
     });
 }
+// --- Inicialización Final ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Verificar autenticación primero
+    checkAuth();
+    
+    // Iniciar datos si ya está logueado
+    if (currentAuthUser) {
+        initData();
+    }
+    
+    // Cargar preferencia de modo oscuro
+    const isDark = localStorage.getItem('darkMode') === 'true';
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+        const textSpan = document.getElementById('dark-mode-text');
+        const iconIcon = document.getElementById('dark-mode-icon');
+        if (textSpan && iconIcon) {
+            textSpan.textContent = 'Desactivar Modo Oscuro';
+            iconIcon.setAttribute('data-lucide', 'sun');
+        }
+    }
+    
+    // Configurar API Key de Gemini si existe
+    const keyInput = document.getElementById('gemini-api-key');
+    if (keyInput && GEMINI_API_KEY) {
+        keyInput.value = GEMINI_API_KEY;
+    }
+
+    // Configurar inputs del calculador de costos
+    const completeHourlyRateField = document.getElementById('complete-hourly-rate');
+    const completeLaborHoursField = document.getElementById('complete-labor-hours');
+    const completeMaterialCostField = document.getElementById('complete-material-cost');
+
+    if (completeHourlyRateField) completeHourlyRateField.addEventListener('input', saveCompleteCostSettings);
+    if (completeLaborHoursField) completeLaborHoursField.addEventListener('input', calculateCompleteCost);
+    if (completeMaterialCostField) completeMaterialCostField.addEventListener('input', calculateCompleteCost);
+
+    // Actualización automática cada 10 segundos
+    setInterval(pollData, 10000); 
+    
+    // Generar iconos iniciales
+    lucide.createIcons();
+});
